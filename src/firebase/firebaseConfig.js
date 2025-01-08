@@ -28,7 +28,7 @@ const app = initializeApp(firebaseConfig)
 export const db = getFirestore(app)
 export const storage = getStorage(app)
 
-export async function addText({ title, path, order, realTitle }) {
+export async function addText({ title, path, order, realTitle, user }) {
   const newReplay = doc(collection(db, 'text'))
   await setDoc(newReplay, {
     id: newReplay.id,
@@ -36,6 +36,7 @@ export async function addText({ title, path, order, realTitle }) {
     realTitle,
     path,
     order,
+    user,
   })
   return {
     id: newReplay.id,
@@ -43,6 +44,7 @@ export async function addText({ title, path, order, realTitle }) {
     path,
     order,
     realTitle,
+    user,
   }
 }
 

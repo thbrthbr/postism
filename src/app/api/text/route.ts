@@ -13,12 +13,13 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const { title, path, order, realTitle } = await request.json()
+  const { title, path, order, realTitle, user } = await request.json()
   const addedText = await addText({
     realTitle,
     title,
     path,
     order,
+    user,
   })
   const response = {
     message: '무라사키',
