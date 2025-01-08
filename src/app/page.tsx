@@ -1,7 +1,7 @@
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from './api/auth/[...nextauth]/route'
-import LoginSection from '@/components/LoginSection'
 import UserPage from '@/components/UserPage'
+import LoginSection from '@/components/LoginSection'
 
 export default async function Login() {
   const session = await getServerSession(authOptions)
