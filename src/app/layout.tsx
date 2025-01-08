@@ -16,8 +16,8 @@ const geistMono = localFont({
 })
 
 export const metadata: Metadata = {
-  title: 'Semi-Authorism',
-  description: 'For writing novel anyway',
+  title: 'Postism',
+  description: 'Post text anywhere',
 }
 
 export default function RootLayout({

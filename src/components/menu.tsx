@@ -29,14 +29,16 @@ export default function Menu({ location, customFunctions }: Props) {
       }}
     >
       <div className="flex">
-        <button onClick={() => setTheme('light')}>라이트</button>
-        <button onClick={() => setTheme('dark')}>다크</button>
+        {/* <button onClick={() => setTheme('light')}>라이트</button>
+        <button onClick={() => setTheme('dark')}>다크</button> */}
+        <button onClick={() => alert('기능추가예정')}>라이트</button>
+        <button onClick={() => alert('기능추가예정')}>다크</button>
       </div>
       <div>
         <button onClick={customFunctions?.addText}>txt파일 추가</button>
       </div>
       <div>
-        <button>폴더 추가</button>
+        <button onClick={() => alert('기능추가예정')}>폴더 추가</button>
       </div>
       <div>
         <button onClick={() => signOut()}>로그아웃</button>

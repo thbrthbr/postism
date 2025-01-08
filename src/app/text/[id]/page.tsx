@@ -18,6 +18,7 @@ export default function Text() {
   const [loading, setLoading] = useState(true)
   const [original, setOriginal] = useState('')
   const [txtTitle, setTxtTitle] = useState('')
+  const [isMe, setIsMe] = useState(false) // 이 정도로 수정 가능하게 되어 있는데 이거 추후에 수정해야함
 
   const getContent = async () => {
     if (param) {
@@ -31,7 +32,13 @@ export default function Text() {
       const textContent = await response.text()
       setPath(final.data[0].title)
       setOriginal(textContent)
-      if (contentRef.current) contentRef.current.value = textContent
+      if (contentRef.current) {
+        if (final.data[0].user === session?.user?.email) {
+          contentRef.current.readOnly = false
+          setIsMe(true)
+        }
+        contentRef.current.value = textContent
+      }
       setLoading(false)
       setTxtTitle(final.data[0].realTitle)
     }
@@ -58,14 +65,18 @@ export default function Text() {
 
   const editTXT = useCallback(async () => {
     if (contentRef.current) {
-      const fileRef = ref(storage, `texts/${path}.txt`)
-      await uploadString(fileRef, contentRef.current.value, 'raw', {
-        contentType: 'text/plain;charset=utf-8',
-      })
-      alert('저장되었습니다')
-      setOriginal(contentRef.current.value)
+      if (isMe) {
+        const fileRef = ref(storage, `texts/${path}.txt`)
+        await uploadString(fileRef, contentRef.current.value, 'raw', {
+          contentType: 'text/plain;charset=utf-8',
+        })
+        alert('저장되었습니다')
+        setOriginal(contentRef.current.value)
+      } else {
+        alert('수정권한이 없습니다')
+      }
     }
-  }, [path])
+  }, [path, isMe])
 
   const handleSaveShortcut = useCallback(
     (event: KeyboardEvent) => {
@@ -142,6 +153,7 @@ export default function Text() {
         </button>
       </div>
       <textarea
+        readOnly={true}
         ref={contentRef}
         onKeyDown={handleTabKey}
         className="relative h-screen overflow-y-scroll scrollbar outline-none bg-black m-4 text-white resize-none"
