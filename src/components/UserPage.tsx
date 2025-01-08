@@ -81,6 +81,7 @@ export default function UserPage() {
               path: downUrl,
               order: Date.now(),
               realTitle: fileName,
+              user: session?.user?.email,
             }),
             cache: 'no-store',
           },
