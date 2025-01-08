@@ -84,6 +84,7 @@ export async function getSpecificText(id) {
       realTitle: doc.data()['realTitle'],
       path: doc.data()['path'],
       order: doc.data()['order'],
+      user: doc.data()['user'],
     })
   })
   return fetchedTexts
