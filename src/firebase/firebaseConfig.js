@@ -63,6 +63,7 @@ export async function getTexts(id) {
       title: doc.data()['title'],
       path: doc.data()['path'],
       order: doc.data()['order'],
+      user: doc.data()['user'],
     }
     fetchedReplays.push(aTodo)
   })
