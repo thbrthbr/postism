@@ -7,8 +7,10 @@ import { storage } from '@/firebase/firebaseConfig'
 import { FaArrowLeft, FaArrowDown, FaRegSave } from 'react-icons/fa'
 import Spinner from '@/components/spinner'
 import { LuDownload } from 'react-icons/lu'
+import { useSession } from 'next-auth/react'
 
 export default function Text() {
+  const { data: session } = useSession()
   const router = useRouter()
   const param = useParams()
   const contentRef = useRef<any>(null)
