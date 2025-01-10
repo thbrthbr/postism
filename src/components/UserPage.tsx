@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { storage } from "../firebase/firebaseConfig";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useRouter } from "next/navigation";
 import { IoIosClose } from "react-icons/io";
 import Menu from "@/components/menu";
 import Spinner from "@/components/spinner";
+import SpinnerMini from "./spinner-mini";
 import { AnimatePresence, motion } from "framer-motion";
 import { useSession } from "next-auth/react";
 
@@ -23,6 +24,7 @@ export default function UserPage() {
   );
   const [datas, setDatas] = useState<any>([]);
   const [dataCount, setDataCount] = useState<number[]>([]);
+  const [currentDataId, setCurentDataId] = useState("");
   const router = useRouter();
 
   const addTXT = async () => {
@@ -76,34 +78,50 @@ export default function UserPage() {
     const key = Date.now();
     const file = makeTXTfile();
     const fileName = `untitled-${dataCount[dataCount.length - 1]}`;
+
+    // Optimistic UI - UI에 새 데이터 먼저 추가
+    const optimisticData = {
+      id: "temp", // 서버에서 id를 받아오는 것으로 변경 가능
+      title: `${fileName}:${key}`,
+      path: "", // URL을 비워두고 나중에 업데이트
+      order: key,
+      realTitle: fileName,
+      user: session?.user?.email,
+    };
+    const temp = [optimisticData, ...datas];
+    setDatas((prevDatas: any) => [optimisticData, ...prevDatas]);
     setDataCount([...dataCount, dataCount[dataCount.length - 1] + 1]);
     const fileRef = ref(storage, `texts/${fileName}:${key}.txt`);
-    await uploadBytes(fileRef, file).then(async (snapshot) => {
-      getDownloadURL(snapshot.ref).then(async (downUrl) => {
-        const brought = await fetch(
-          `${process.env.NEXT_PUBLIC_SITE}/api/text`,
-          {
-            method: "POST",
-            body: JSON.stringify({
-              title: `${fileName}:${key}`,
-              path: downUrl,
-              order: key,
-              realTitle: fileName,
-              user: session?.user?.email,
-            }),
-            cache: "no-store",
-          },
-        );
-        const final = await brought.json();
-        const semi = datas.slice(0);
-        semi.unshift(final.data);
-        // setDatas(semi)
-        setDatas((prevDatas: any) => [
-          { ...final.data, id: `${final.data.id}` }, // 새로운 key 값을 주어 고유하게 식별
-          ...prevDatas,
-        ]);
+    try {
+      const snapshot = await uploadBytes(fileRef, file);
+      const downUrl = await getDownloadURL(snapshot.ref);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_SITE}/api/text`, {
+        method: "POST",
+        body: JSON.stringify({
+          title: `${fileName}:${key}`,
+          path: downUrl,
+          order: key,
+          realTitle: fileName,
+          user: session?.user?.email,
+        }),
+        cache: "no-store",
       });
-    });
+
+      const final = await response.json();
+      let tempCopy = temp.slice(0);
+      tempCopy = tempCopy.map((item: any) => {
+        return item.title === optimisticData.title
+          ? { ...item, path: downUrl, id: final.data.id }
+          : item;
+      });
+      setDatas(tempCopy);
+    } catch (error) {
+      console.error("Error adding text:", error);
+      alert("Failed to upload text");
+      setDatas((prevDatas: any) =>
+        prevDatas.filter((item: any) => item.id !== optimisticData.id),
+      );
+    }
   };
 
   const getWritten = async () => {
@@ -154,6 +172,11 @@ export default function UserPage() {
   };
 
   const editTitle = async (id: string, newTitle: string) => {
+    if (newTitle.length <= 0) {
+      alert("한 글자 이상이어야 합니다");
+      return;
+    }
+    setModSwitch(-1);
     await fetch(`${process.env.NEXT_PUBLIC_SITE}/api/text/edit-title`, {
       method: "POST",
       body: JSON.stringify({
@@ -162,6 +185,25 @@ export default function UserPage() {
       }),
       cache: "no-store",
     });
+  };
+
+  const handleEditTitle = (
+    e: React.MouseEvent,
+    idx: number,
+    inputId: string,
+  ) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setModSwitch(idx);
+
+    setTimeout(() => {
+      const inputElement = document.querySelector(
+        `#${inputId}`,
+      ) as HTMLInputElement;
+      if (inputElement) {
+        inputElement.focus();
+      }
+    }, 0);
   };
 
   useEffect(() => {
@@ -182,12 +224,14 @@ export default function UserPage() {
           y: e.pageY,
         });
       }}
-      onClick={() => {
+      onClick={(e) => {
+        e.preventDefault();
         setLocation({
           x: -1,
           y: -1,
         });
-        setModSwitch(-1);
+        if (modSwitch !== -1)
+          editTitle(currentDataId, datas[modSwitch].realTitle);
       }}
     >
       {location.x !== -1 && (
@@ -213,12 +257,13 @@ export default function UserPage() {
             </div>
             <AnimatePresence>
               {datas.map((data: any, idx: number) => {
+                const inputId = data.title.replace(":", "-");
                 return (
                   <motion.div
-                    className="z-40 flex h-[240px] w-[140px] cursor-pointer flex-col items-center"
-                    key={data.id}
+                    className={`z-40 flex h-[240px] w-[140px] ${data.id !== "temp" && "cursor-pointer"} flex-col items-center`}
+                    key={data.title}
                     onClick={() => {
-                      enterText(data.id);
+                      if (data.id !== "temp") enterText(data.id);
                     }}
                     layout
                     initial={{ opacity: 0, y: -20 }}
@@ -241,23 +286,30 @@ export default function UserPage() {
                       >
                         <IoIosClose />
                       </div>
-                      <div className="ml-4 mr-4 flex h-full items-center justify-start">
-                        <div className="text-overflow w-full text-center">
-                          {data.realTitle}
-                        </div>
+                      <div className="ml-4 mr-4 flex h-full items-center justify-center">
+                        {data.id === "temp" ? (
+                          <div className="flex items-center justify-center text-center">
+                            <SpinnerMini />
+                          </div>
+                        ) : (
+                          <div className="text-overflow flex w-full items-center justify-center text-center">
+                            {data.realTitle}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div
-                      onContextMenu={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        setModSwitch(idx);
+                      className="w-full"
+                      onClick={(e) => {
+                        handleEditTitle(e, idx, inputId);
+                        setCurentDataId(data.id);
                       }}
                     >
                       {modSwitch == idx ? (
                         <div>
                           <input
-                            className="text-black"
+                            id={inputId}
+                            className="w-full text-center text-black outline-none"
                             value={data.realTitle}
                             onClick={(e) => {
                               e.stopPropagation();
@@ -269,14 +321,15 @@ export default function UserPage() {
                             }}
                             onKeyDown={(e) => {
                               if (e.key == "Enter") {
-                                setModSwitch(-1);
                                 editTitle(data.id, datas[idx].realTitle);
                               }
                             }}
                           ></input>
                         </div>
                       ) : (
-                        <div className="text-overflow-2">{data.realTitle}</div>
+                        <div className="text-overflow-2 w-full text-center">
+                          {data.realTitle}
+                        </div>
                       )}
                     </div>
                   </motion.div>
