@@ -29,17 +29,22 @@ export default function Text() {
         cache: "no-store",
       });
       const final = await result.json();
-      const path = final.data[0].path;
-      const response = await fetch(path);
-      const textContent = await response.text();
-      setOriginal(textContent);
-      setPath(final.data[0].title);
-      if (contentRef.current) {
-        setCheckUser(final.data[0].user);
-        contentRef.current.value = textContent;
-        setLoading(false);
+      if (final.data.length > 0) {
+        const path = final.data[0].path;
+        const response = await fetch(path);
+        const textContent = await response.text();
+        setOriginal(textContent);
+        setPath(final.data[0].title);
+        if (contentRef.current) {
+          setCheckUser(final.data[0].user);
+          contentRef.current.value = textContent;
+          setLoading(false);
+        }
+        setTxtTitle(final.data[0].realTitle);
+      } else {
+        alert("해당 문서는 존재하지 않습니다");
+        router.push("/");
       }
-      setTxtTitle(final.data[0].realTitle);
     }
   };
 
