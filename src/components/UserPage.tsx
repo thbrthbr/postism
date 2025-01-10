@@ -13,6 +13,7 @@ import { useSession } from "next-auth/react";
 
 export default function UserPage() {
   const { data: session } = useSession();
+  const [isAdding, setIsAdding] = useState(false);
   const [loading, setLoading] = useState(true);
   const [location, setLocation] = useState({
     x: -1,
@@ -27,7 +28,7 @@ export default function UserPage() {
   const [currentDataId, setCurentDataId] = useState("");
   const router = useRouter();
 
-  const addTXT = async () => {
+  const uploadWritten = async () => {
     try {
       const key = Date.now();
       let file: any = document.createElement("input");
@@ -70,13 +71,12 @@ export default function UserPage() {
     } catch (e) {}
   };
 
-  const makeTXTfile = () => {
-    return new Blob([""], { type: "text/plain;charset=utf-8" });
-  };
-
   const addWritten = async () => {
+    if (isAdding) return; // isAdding이 true이면 함수 실행을 막음
+
+    setIsAdding(true);
     const key = Date.now();
-    const file = makeTXTfile();
+    const file = new Blob([""], { type: "text/plain;charset=utf-8" });
     const fileName = `untitled-${dataCount[dataCount.length - 1]}`;
 
     // Optimistic UI - UI에 새 데이터 먼저 추가
@@ -121,6 +121,8 @@ export default function UserPage() {
       setDatas((prevDatas: any) =>
         prevDatas.filter((item: any) => item.id !== optimisticData.id),
       );
+    } finally {
+      setIsAdding(false); // 작업 완료 후 로딩 상태 종료
     }
   };
 
@@ -235,7 +237,10 @@ export default function UserPage() {
       }}
     >
       {location.x !== -1 && (
-        <Menu location={location} customFunctions={{ addText: addTXT }} />
+        <Menu
+          location={location}
+          customFunctions={{ addText: uploadWritten }}
+        />
       )}
       <div>
         {loading ? (

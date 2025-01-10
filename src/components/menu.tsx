@@ -30,7 +30,7 @@ export default function Menu({ location, customFunctions }: Props) {
         <ThemeSelect />
       </div>
       <div>
-        <button onClick={customFunctions?.addText}>txt파일 추가</button>
+        <button onClick={customFunctions?.addText}>업로드</button>
       </div>
       <div>
         <button onClick={() => alert("기능추가예정")}>폴더 추가</button>
