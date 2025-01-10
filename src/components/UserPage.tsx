@@ -27,6 +27,7 @@ export default function UserPage() {
 
   const addTXT = async () => {
     try {
+      const key = Date.now();
       let file: any = document.createElement("input");
       file.type = "file";
       file.addEventListener("change", async () => {
@@ -35,7 +36,7 @@ export default function UserPage() {
           return;
         }
         const fileName = file.files[0].name;
-        const fileRef = ref(storage, `texts/${fileName}:${Date.now()}.txt`);
+        const fileRef = ref(storage, `texts/${fileName}:${key}.txt`);
         await uploadBytes(fileRef, file.files[0]).then(async (snapshot) => {
           getDownloadURL(snapshot.ref).then(async (downUrl) => {
             const brought = await fetch(
@@ -43,9 +44,9 @@ export default function UserPage() {
               {
                 method: "POST",
                 body: JSON.stringify({
-                  title: `${fileName}:${Date.now()}`,
+                  title: `${fileName}:${key}`,
                   path: downUrl,
-                  order: Date.now(),
+                  order: key,
                   realTitle: fileName,
                   user: session?.user?.email,
                 }),
@@ -72,10 +73,11 @@ export default function UserPage() {
   };
 
   const addWritten = async () => {
+    const key = Date.now();
     const file = makeTXTfile();
     const fileName = `untitled-${dataCount[dataCount.length - 1]}`;
     setDataCount([...dataCount, dataCount[dataCount.length - 1] + 1]);
-    const fileRef = ref(storage, `texts/${fileName}.txt`);
+    const fileRef = ref(storage, `texts/${fileName}:${key}.txt`);
     await uploadBytes(fileRef, file).then(async (snapshot) => {
       getDownloadURL(snapshot.ref).then(async (downUrl) => {
         const brought = await fetch(
@@ -83,9 +85,9 @@ export default function UserPage() {
           {
             method: "POST",
             body: JSON.stringify({
-              title: `${fileName}:${Date.now()}`,
+              title: `${fileName}:${key}`,
               path: downUrl,
-              order: Date.now(),
+              order: key,
               realTitle: fileName,
               user: session?.user?.email,
             }),

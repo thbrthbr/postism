@@ -65,9 +65,9 @@ export default function Text() {
   const editTXT = useCallback(async () => {
     if (contentRef.current) {
       if (isMe) {
-        const fileRef = ref(storage, `texts/${path}.txt`);
         // 여기서 다이렉트로 수정하는 건 별로임
         // 나중에 api를 하나 새로 만들고 api 요청할 때 jwt? 토큰? 을 검사해서 유효한 경우에만 아래 uploadString 요청을 보내야함
+        const fileRef = ref(storage, `texts/${path}.txt`);
         await uploadString(fileRef, contentRef.current.value, "raw", {
           contentType: "text/plain;charset=utf-8",
         });

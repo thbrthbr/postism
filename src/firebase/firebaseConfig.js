@@ -100,6 +100,7 @@ export async function editSpecificTitle({ id, newTitle }) {
 }
 
 export async function deleteSpecificText(id) {
+  // 여기에 실제 파일 삭제하게 로직 추가 -> title로 받아와서 path로 쓰면 될거임
   await deleteDoc(doc(db, "text", id));
   return { status: "성공" };
 }
