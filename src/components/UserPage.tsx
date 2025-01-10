@@ -35,7 +35,7 @@ export default function UserPage() {
           return;
         }
         const fileName = file.files[0].name;
-        const fileRef = ref(storage, `texts/${fileName}.txt`);
+        const fileRef = ref(storage, `texts/${fileName}:${Date.now()}.txt`);
         await uploadBytes(fileRef, file.files[0]).then(async (snapshot) => {
           getDownloadURL(snapshot.ref).then(async (downUrl) => {
             const brought = await fetch(
@@ -43,7 +43,7 @@ export default function UserPage() {
               {
                 method: "POST",
                 body: JSON.stringify({
-                  title: fileName,
+                  title: `${fileName}:${Date.now()}`,
                   path: downUrl,
                   order: Date.now(),
                   realTitle: fileName,
@@ -83,7 +83,7 @@ export default function UserPage() {
           {
             method: "POST",
             body: JSON.stringify({
-              title: fileName,
+              title: `${fileName}:${Date.now()}`,
               path: downUrl,
               order: Date.now(),
               realTitle: fileName,
