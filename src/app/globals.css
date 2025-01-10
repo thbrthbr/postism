@@ -19,13 +19,13 @@ body {
     --color-secondary: black;
   }
 
-  :root[data-theme='dark'] {
+  :root[data-theme="dark"] {
     --color-bg-primary: black;
     --color-primary: #fff;
     --color-secondary: #fff;
   }
 
-  :root[data-theme='wood'] {
+  :root[data-theme="wood"] {
     --color-bg-primary: #f8e1b7;
     --color-primary: #754e1a;
     --color-secondary: #754e1a;
@@ -67,12 +67,12 @@ textarea {
 }
 
 .scrollbar::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.1);
+  background: transparent;
 }
 
 @font-face {
-  font-family: 'Lobster';
-  src: url('../../public/fonts/Lobster-Regular.ttf') format('truetype');
+  font-family: "Lobster";
+  src: url("../../public/fonts/Lobster-Regular.ttf") format("truetype");
   font-weight: normal;
   font-style: normal;
 }
