@@ -5,15 +5,15 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { Theme } from './ThemeScript.'
+} from "@/components/ui/select";
+import { Theme } from "./ThemeScript.";
 
 export default function ThemeSelect() {
   return (
     <Select
       onValueChange={(e) => {
-        const value: Theme = e as Theme
-        global.window?.__setPreferredTheme(value)
+        const value: Theme = e as Theme;
+        global.window?.__setPreferredTheme(value);
       }}
     >
       <SelectTrigger>
@@ -27,5 +27,5 @@ export default function ThemeSelect() {
         </SelectGroup>
       </SelectContent>
     </Select>
-  )
+  );
 }

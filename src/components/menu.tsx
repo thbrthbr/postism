@@ -1,29 +1,29 @@
-import { signOut } from 'next-auth/react'
-import ThemeSelect from './ThemeSelect'
+import { signOut } from "next-auth/react";
+import ThemeSelect from "./ThemeSelect";
 
 interface Props {
-  location: Location
-  customFunctions: any
+  location: Location;
+  customFunctions: any;
 }
 
 interface Location {
-  x: number
-  y: number
+  x: number;
+  y: number;
 }
 
 export default function Menu({ location, customFunctions }: Props) {
-  const { x, y } = location
+  const { x, y } = location;
 
   return (
     <div
-      className="border-2 border-border p-2 rounded-md z-[9998] absolute flex flex-col gap-2 w-[200px]"
+      className="absolute z-[9998] flex w-[200px] flex-col gap-2 rounded-md border-2 border-border p-2"
       style={{
-        backgroundColor: 'var(--color-bg-primary)',
+        backgroundColor: "var(--color-bg-primary)",
         left: `${x}px`,
         top: `${y}px`,
       }}
       onClick={(e) => {
-        e.stopPropagation()
+        e.stopPropagation();
       }}
     >
       <div className="flex">
@@ -33,11 +33,11 @@ export default function Menu({ location, customFunctions }: Props) {
         <button onClick={customFunctions?.addText}>txt파일 추가</button>
       </div>
       <div>
-        <button onClick={() => alert('기능추가예정')}>폴더 추가</button>
+        <button onClick={() => alert("기능추가예정")}>폴더 추가</button>
       </div>
       <div>
         <button onClick={() => signOut()}>로그아웃</button>
       </div>
     </div>
-  )
+  );
 }

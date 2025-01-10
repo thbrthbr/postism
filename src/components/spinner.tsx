@@ -1,17 +1,17 @@
-'use client'
+"use client";
 
-import { motion } from 'framer-motion'
+import { motion } from "framer-motion";
 
 export default function Spinner() {
   return (
-    <div className="flex justify-center items-center h-screen">
+    <div className="flex h-screen items-center justify-center">
       <motion.div
         style={{
           width: 0,
           height: 0,
-          borderLeft: '100px solid transparent',
-          borderRight: '100px solid transparent',
-          borderBottom: '100px solid var(--color-primary)',
+          borderLeft: "100px solid transparent",
+          borderRight: "100px solid transparent",
+          borderBottom: "100px solid var(--color-primary)",
         }}
         animate={{
           scale: [0.5],
@@ -21,10 +21,10 @@ export default function Spinner() {
         transition={{
           duration: 3,
           repeat: Infinity,
-          repeatType: 'loop',
+          repeatType: "loop",
           times: [0, 0.25, 0.5, 1],
         }}
       />
     </div>
-  )
+  );
 }

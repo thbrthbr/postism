@@ -1,8 +1,8 @@
-'use client'
+"use client";
 
-import { signIn, signOut } from 'next-auth/react'
-import googleThumbnail from '@/asset/googlethumbnail.png'
-import Image from 'next/image'
+import { signIn, signOut } from "next-auth/react";
+import googleThumbnail from "@/asset/googlethumbnail.png";
+import Image from "next/image";
 
 export default function LoginSection() {
   const handleLogin = async (type: string) => {
@@ -15,27 +15,27 @@ export default function LoginSection() {
       //     callbackUrl: '/',
       //   })
       // }
-      if (type == 'google') {
-        const result = await signIn('google', {
-          username: '',
-          password: '',
+      if (type == "google") {
+        const result = await signIn("google", {
+          username: "",
+          password: "",
           redirect: true,
-          callbackUrl: '/',
-        })
+          callbackUrl: "/",
+        });
       }
     } catch (e) {}
-  }
+  };
   return (
-    <div className="w-full h-screen flex flex-col justify-center items-center gap-4">
+    <div className="flex h-screen w-full flex-col items-center justify-center gap-4">
       {/* <button className="text-white" onClick={() => handleLogin('kakao')}>
       카카오로 로그인
     </button> */}
-      <div className="flex flex-col justify-center items-center text-7xl font-lobster select-none">
+      <div className="flex select-none flex-col items-center justify-center font-lobster text-7xl">
         <p>Postism</p>
       </div>
       <button
-        className="border w-48 px-2 bg-white rounded-md flex items-center foont-semibold"
-        onClick={() => handleLogin('google')}
+        className="foont-semibold flex w-48 items-center rounded-md border bg-white px-2"
+        onClick={() => handleLogin("google")}
       >
         <Image
           src={googleThumbnail.src}
@@ -46,5 +46,5 @@ export default function LoginSection() {
         <div className="w-full font-lobster text-black">Google</div>
       </button>
     </div>
-  )
+  );
 }
