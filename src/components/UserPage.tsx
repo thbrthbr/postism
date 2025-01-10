@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { IoIosClose } from 'react-icons/io'
 import Menu from '@/components/menu'
 import Spinner from '@/components/spinner'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useSession } from 'next-auth/react'
 
 export default function UserPage() {
@@ -17,7 +18,11 @@ export default function UserPage() {
     y: -1,
   })
   const [modSwitch, setModSwitch] = useState(-1)
+  const [previousEmail, setPreviousEmail] = useState<string | null | undefined>(
+    null,
+  )
   const [datas, setDatas] = useState<any>([])
+  const [dataCount, setDataCount] = useState<number[]>([])
   const router = useRouter()
 
   const addTXT = async () => {
@@ -68,7 +73,8 @@ export default function UserPage() {
 
   const addWritten = async () => {
     const file = makeTXTfile()
-    const fileName = `untitled${Date.now()}`
+    const fileName = `untitled-${dataCount[dataCount.length - 1]}`
+    setDataCount([...dataCount, dataCount[dataCount.length - 1] + 1])
     const fileRef = ref(storage, `texts/${fileName}.txt`)
     await uploadBytes(fileRef, file).then(async (snapshot) => {
       getDownloadURL(snapshot.ref).then(async (downUrl) => {
@@ -89,7 +95,11 @@ export default function UserPage() {
         const final = await brought.json()
         const semi = datas.slice(0)
         semi.unshift(final.data)
-        setDatas(semi)
+        // setDatas(semi)
+        setDatas((prevDatas: any) => [
+          { ...final.data, id: `${final.data.id}` }, // 새로운 key 값을 주어 고유하게 식별
+          ...prevDatas,
+        ])
       })
     })
   }
@@ -107,6 +117,7 @@ export default function UserPage() {
       .sort((x: any, y: any) => x.order - y.order)
       .reverse()
     setDatas(sorted)
+    setDataCount([sorted.length])
     setLoading(false)
   }
 
@@ -152,12 +163,16 @@ export default function UserPage() {
   }
 
   useEffect(() => {
-    if (session) getWritten()
+    if (session && session?.user?.email !== previousEmail) {
+      // session이 갱신되었을 때만 getWritten을 호출
+      getWritten()
+      setPreviousEmail(session?.user?.email)
+    }
   }, [session])
 
   return (
     <div
-      className="relative bg-black text-white flex flex-col items-center justify-start h-screen"
+      className="relative flex flex-col items-center justify-start h-screen"
       onContextMenu={(e) => {
         e.preventDefault()
         setLocation({
@@ -188,72 +203,84 @@ export default function UserPage() {
               key={0}
               onClick={addWritten}
             >
-              <div className="rounded-md bg-white w-[140px] h-[200px]">
-                <div className="ml-4 mr-4 h-full flex justify-center items-center text-black text-center cursor-pointer">
+              <div className="border-2 border-border rounded-md w-[140px] h-[200px]">
+                <div className="text-4xl ml-4 mr-4 h-full flex justify-center items-center text-center cursor-pointer">
                   +
                 </div>
               </div>
             </div>
-            {datas.map((data: any, idx: number) => {
-              return (
-                <div
-                  className="z-40 flex flex-col items-center w-[140px] h-[240px] cursor-pointer"
-                  key={idx + 1}
-                  onClick={() => {
-                    enterText(data.id)
-                  }}
-                >
-                  <div className="relative rounded-md bg-white w-[140px] h-[200px] mh-[200px]">
+            <AnimatePresence>
+              {datas.map((data: any, idx: number) => {
+                return (
+                  <motion.div
+                    className="z-40 flex flex-col items-center w-[140px] h-[240px] cursor-pointer"
+                    key={data.id}
+                    onClick={() => {
+                      enterText(data.id)
+                    }}
+                    layout
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 20 }}
+                    transition={{ duration: 0.8 }}
+                  >
                     <div
-                      className="absolute text-black p-1 end-0"
-                      onClick={(e) => {
+                      style={{
+                        backgroundColor: 'var(--color-bg-primary)',
+                      }}
+                      className="relative rounded-md w-[140px] h-[200px] mh-[200px] border-2 border-border"
+                    >
+                      <div
+                        className="absolute p-1 end-0"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          deleteWritten(data.id)
+                        }}
+                      >
+                        <IoIosClose />
+                      </div>
+                      <div className="ml-4 mr-4 h-full flex justify-start items-center">
+                        <div className="text-overflow w-full text-center">
+                          {data.realTitle}
+                        </div>
+                      </div>
+                    </div>
+                    <div
+                      onContextMenu={(e) => {
                         e.stopPropagation()
-                        deleteWritten(data.id)
+                        e.preventDefault()
+                        setModSwitch(idx)
                       }}
                     >
-                      <IoIosClose />
+                      {modSwitch == idx ? (
+                        <div>
+                          <input
+                            className="text-black"
+                            value={data.realTitle}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                            }}
+                            onChange={(e) => {
+                              let temp = datas.slice(0)
+                              temp[idx].realTitle = e.target.value
+                              setDatas(temp)
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key == 'Enter') {
+                                setModSwitch(-1)
+                                editTitle(data.id, datas[idx].realTitle)
+                              }
+                            }}
+                          ></input>
+                        </div>
+                      ) : (
+                        <div className="text-overflow-2">{data.realTitle}</div>
+                      )}
                     </div>
-                    <div className="ml-4 mr-4 h-full flex justify-start items-center text-black">
-                      <div className="text-overflow w-full text-center">
-                        {data.realTitle}
-                      </div>
-                    </div>
-                  </div>
-                  <div
-                    onContextMenu={(e) => {
-                      e.stopPropagation()
-                      e.preventDefault()
-                      setModSwitch(idx)
-                    }}
-                  >
-                    {modSwitch == idx ? (
-                      <div>
-                        <input
-                          className="text-black"
-                          value={data.realTitle}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                          }}
-                          onChange={(e) => {
-                            let temp = datas.slice(0)
-                            temp[idx].realTitle = e.target.value
-                            setDatas(temp)
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key == 'Enter') {
-                              setModSwitch(-1)
-                              editTitle(data.id, datas[idx].realTitle)
-                            }
-                          }}
-                        ></input>
-                      </div>
-                    ) : (
-                      <div className="text-overflow-2">{data.realTitle}</div>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
+                  </motion.div>
+                )
+              })}
+            </AnimatePresence>
           </div>
         )}
       </div>

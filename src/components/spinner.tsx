@@ -11,7 +11,7 @@ export default function Spinner() {
           height: 0,
           borderLeft: '100px solid transparent',
           borderRight: '100px solid transparent',
-          borderBottom: '100px solid #FFFFFF',
+          borderBottom: '100px solid var(--color-primary)',
         }}
         animate={{
           scale: [0.5],

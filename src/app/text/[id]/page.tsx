@@ -14,7 +14,9 @@ export default function Text() {
   const router = useRouter()
   const param = useParams()
   const contentRef = useRef<any>(null)
+  const isMounted = useRef<any>(null)
   const [path, setPath] = useState('')
+  const [checkUser, setCheckUser] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [original, setOriginal] = useState('')
   const [txtTitle, setTxtTitle] = useState('')
@@ -30,16 +32,13 @@ export default function Text() {
       const path = final.data[0].path
       const response = await fetch(path)
       const textContent = await response.text()
-      setPath(final.data[0].title)
       setOriginal(textContent)
+      setPath(final.data[0].title)
       if (contentRef.current) {
-        if (final.data[0].user === session?.user?.email) {
-          contentRef.current.readOnly = false
-          setIsMe(true)
-        }
+        setCheckUser(final.data[0].user)
         contentRef.current.value = textContent
+        setLoading(false)
       }
-      setLoading(false)
       setTxtTitle(final.data[0].realTitle)
     }
   }
@@ -67,6 +66,8 @@ export default function Text() {
     if (contentRef.current) {
       if (isMe) {
         const fileRef = ref(storage, `texts/${path}.txt`)
+        // 여기서 다이렉트로 수정하는 건 별로임
+        // 나중에 api를 하나 새로 만들고 api 요청할 때 jwt? 토큰? 을 검사해서 유효한 경우에만 아래 uploadString 요청을 보내야함
         await uploadString(fileRef, contentRef.current.value, 'raw', {
           contentType: 'text/plain;charset=utf-8',
         })
@@ -115,32 +116,47 @@ export default function Text() {
   }
 
   useEffect(() => {
-    getContent()
+    if (!isMounted.current) {
+      getContent()
+      isMounted.current = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (contentRef.current) {
+      if (checkUser === session?.user?.email) {
+        setIsMe(true)
+        contentRef.current.readOnly = false
+      }
+    }
+  }, [checkUser])
+
+  useEffect(() => {
     document.addEventListener('keydown', handleSaveShortcut)
     return () => {
       document.removeEventListener('keydown', handleSaveShortcut)
     }
   }, [handleSaveShortcut])
 
-  if (loading) {
-    return (
-      <div className="w-full h-screen flex justify-center items-center text-white">
-        <Spinner />
-      </div>
-    )
-  }
-
   return (
-    <div className="flex flex-col w-full h-screen">
+    <div className="relative flex flex-col w-full h-screen">
+      {loading && (
+        <div
+          style={{ backgroundColor: 'var(--color-bg-primary)' }}
+          className="z-50 absolute w-full h-screen flex justify-center items-center text-white"
+        >
+          <Spinner />
+        </div>
+      )}
       <div className="w-full flex justify-center items-center gap-16 px-1 py-3">
         <button onClick={handleBack}>
-          <FaArrowLeft className="text-[#FFFFFF]" />
+          <FaArrowLeft />
         </button>
         <button onClick={editTXT}>
-          <FaRegSave className="text-[#FFFFFF]" />
+          <FaRegSave />
         </button>
         <button onClick={downloadTXT}>
-          <LuDownload className="text-[#FFFFFF] font-bold" />
+          <LuDownload className="font-bold" />
         </button>
         <button
           onClick={() =>
@@ -149,14 +165,14 @@ export default function Text() {
             })
           }
         >
-          <FaArrowDown className="text-[#FFFFFF]" />
+          <FaArrowDown />
         </button>
       </div>
       <textarea
         readOnly={true}
         ref={contentRef}
         onKeyDown={handleTabKey}
-        className="relative h-screen overflow-y-scroll scrollbar outline-none bg-black m-4 text-white resize-none"
+        className="relative h-screen overflow-y-scroll scrollbar outline-none m-4 resize-none"
       ></textarea>
     </div>
   )

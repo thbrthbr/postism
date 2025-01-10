@@ -31,10 +31,10 @@ export default function LoginSection() {
       카카오로 로그인
     </button> */}
       <div className="flex flex-col justify-center items-center text-7xl font-lobster select-none">
-        <p className="text-white">Postism</p>
+        <p>Postism</p>
       </div>
       <button
-        className="w-48 px-2 bg-white rounded-md flex items-center foont-semibold"
+        className="border w-48 px-2 bg-white rounded-md flex items-center foont-semibold"
         onClick={() => handleLogin('google')}
       >
         <Image
@@ -43,7 +43,7 @@ export default function LoginSection() {
           width={40}
           height={40}
         />
-        <div className="w-full font-lobster">Google</div>
+        <div className="w-full font-lobster text-black">Google</div>
       </button>
     </div>
   )

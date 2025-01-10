@@ -3,8 +3,37 @@
 @tailwind utilities;
 
 body {
-  background: black;
+  transition:
+    background-color 0.7s ease,
+    color 0.7s ease;
+  height: 100%;
+  color: var(--color-primary);
+  background: var(--color-bg-primary);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+@layer base {
+  :root {
+    --color-bg-primary: #fff;
+    --color-primary: black;
+    --color-secondary: black;
+  }
+
+  :root[data-theme='dark'] {
+    --color-bg-primary: black;
+    --color-primary: #fff;
+    --color-secondary: #fff;
+  }
+
+  :root[data-theme='wood'] {
+    --color-bg-primary: #f8e1b7;
+    --color-primary: #754e1a;
+    --color-secondary: #754e1a;
+  }
+}
+
+textarea {
+  background-color: var(--color-bg-primary);
 }
 
 .text-overflow {
@@ -32,7 +61,7 @@ body {
 }
 
 .scrollbar::-webkit-scrollbar-thumb {
-  background: white;
+  background: var(--color-primary);
   border-radius: 10px;
   cursor: default;
 }
@@ -48,7 +77,7 @@ body {
   font-style: normal;
 }
 
-@layer base {
+/* @layer base {
   :root {
     --background: 0 0% 100%;
     --foreground: 0 0% 3.9%;
@@ -111,4 +140,23 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+} */
+
+/* :root {
+  --white: hsl(210 40% 98%);
+  --black: #121212;
+
+  --background: white;
+  --foreground: var(--black);
+
+  --primary: 222.2 47.4% 11.2%;
+  --primary-foreground: 210 40% 98%;
 }
+
+.dark {
+  --background: var(--black);
+  --foreground: var(--white);
+
+  --primary: 210 40% 98%;
+  --primary-foreground: 222.2 47.4% 11.2%;
+} */

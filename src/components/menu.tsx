@@ -1,6 +1,5 @@
-import { useMode } from '@/hook/useMode'
 import { signOut } from 'next-auth/react'
-import { useTheme } from 'next-themes'
+import ThemeSelect from './ThemeSelect'
 
 interface Props {
   location: Location
@@ -14,13 +13,12 @@ interface Location {
 
 export default function Menu({ location, customFunctions }: Props) {
   const { x, y } = location
-  // const [theme, useTheme] = useMode()
-  const { setTheme, theme } = useTheme()
 
   return (
     <div
-      className="border p-2 rounded-md z-[9999] bg-white text-black absolute flex flex-col gap-2 w-[200px]"
+      className="border-2 border-border p-2 rounded-md z-[9998] absolute flex flex-col gap-2 w-[200px]"
       style={{
+        backgroundColor: 'var(--color-bg-primary)',
         left: `${x}px`,
         top: `${y}px`,
       }}
@@ -29,10 +27,7 @@ export default function Menu({ location, customFunctions }: Props) {
       }}
     >
       <div className="flex">
-        {/* <button onClick={() => setTheme('light')}>라이트</button>
-        <button onClick={() => setTheme('dark')}>다크</button> */}
-        <button onClick={() => alert('기능추가예정')}>라이트</button>
-        <button onClick={() => alert('기능추가예정')}>다크</button>
+        <ThemeSelect />
       </div>
       <div>
         <button onClick={customFunctions?.addText}>txt파일 추가</button>
