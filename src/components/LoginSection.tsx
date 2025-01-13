@@ -3,6 +3,9 @@
 import { signIn, signOut } from "next-auth/react";
 import googleThumbnail from "@/asset/googlethumbnail.png";
 import Image from "next/image";
+import logo from "@/asset/postism.png";
+import Logo from "./Logo";
+import DescriptionAnimation from "./DescriptionAnimation";
 
 export default function LoginSection() {
   const handleLogin = async (type: string) => {
@@ -30,11 +33,22 @@ export default function LoginSection() {
       {/* <button className="text-white" onClick={() => handleLogin('kakao')}>
       카카오로 로그인
     </button> */}
-      <div className="flex select-none flex-col items-center justify-center font-lobster text-7xl">
-        <p>Postism</p>
+      <div className="flex flex-col items-center justify-center gap-2">
+        {/* <div className="flex select-none flex-col items-center justify-center font-lobster text-7xl">
+          <p>Postism</p>
+        </div> */}
+        <div>
+          <Logo />
+        </div>
+        <div>
+          <DescriptionAnimation />
+        </div>
       </div>
       <button
-        className="foont-semibold flex w-48 items-center rounded-md border bg-white px-2"
+        style={{
+          borderColor: "var(--color-primary)",
+        }}
+        className="foont-semibold flex w-48 items-center rounded-md border-2 bg-white px-2"
         onClick={() => handleLogin("google")}
       >
         <Image

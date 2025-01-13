@@ -413,6 +413,9 @@ export default function UserPage() {
                             id={inputId}
                             className="w-full text-center text-black outline-none"
                             value={data.realTitle}
+                            onContextMenu={(e) => {
+                              e.stopPropagation();
+                            }}
                             onClick={(e) => {
                               e.stopPropagation();
                             }}
