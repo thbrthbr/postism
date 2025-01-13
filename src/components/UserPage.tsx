@@ -345,7 +345,7 @@ export default function UserPage() {
             <Spinner />
           </div>
         ) : (
-          <div className="m-8 flex flex-wrap justify-center gap-8 sm:justify-start">
+          <div className="m-8 flex select-none flex-wrap justify-center gap-8 sm:justify-start">
             <div
               className="flex w-[112px] flex-col items-center sm:w-[140px]"
               key={0}
@@ -362,7 +362,7 @@ export default function UserPage() {
                 const inputId = data.title.replace(":", "-");
                 return (
                   <motion.div
-                    className={`z-40 flex h-[192px] w-[112px] sm:h-[240px] sm:w-[140px] ${data.id !== "temp" && "cursor-pointer"} flex-col items-center`}
+                    className={`z-40 flex w-[112px] select-none sm:w-[140px] ${data.id !== "temp" && "cursor-pointer"} flex-col items-center`}
                     key={data.title}
                     onClick={() => {
                       if (data.id !== "temp") router.push(`/text/${data.id}`);
