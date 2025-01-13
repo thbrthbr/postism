@@ -44,7 +44,7 @@ export default function UserPage() {
           });
           return;
         }
-        const fileName = file.files[0].name;
+        const fileName = file.files[0].name.split(".txt")[0];
         const fileRef = ref(storage, `texts/${fileName}:${key}.txt`);
         await uploadBytes(fileRef, file.files[0]).then(async (snapshot) => {
           getDownloadURL(snapshot.ref).then(async (downUrl) => {
@@ -94,7 +94,7 @@ export default function UserPage() {
     }).then(async (result) => {
       if (result.isConfirmed) {
         const key = Date.now();
-        const fileName = file.name;
+        const fileName = file.name.split(".txt")[0];
         const fileRef = ref(storage, `texts/${fileName}:${key}.txt`);
         await uploadBytes(fileRef, file).then(async (snapshot) => {
           getDownloadURL(snapshot.ref).then(async (downUrl) => {
