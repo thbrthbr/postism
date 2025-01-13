@@ -14,7 +14,10 @@ export default {
         lobster: ["Lobster", "sans-serif"],
       },
       colors: {
-        background: "hsl(var(--color-bg-primary))",
+        background: {
+          DEFAULT: "hsl(var(--color-bg-primary))",
+          foreground: "hsl(var(--color-bg-primary))",
+        },
         foreground: "hsl(var(--foreground))",
         card: {
           DEFAULT: "hsl(var(--card))",

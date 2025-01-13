@@ -10,8 +10,11 @@ import Spinner from "@/components/spinner";
 import SpinnerMini from "./spinner-mini";
 import { AnimatePresence, motion } from "framer-motion";
 import { useSession } from "next-auth/react";
+import { useToast } from "@/hooks/use-toast";
+import Swal from "sweetalert2";
 
 export default function UserPage() {
+  const { toast } = useToast();
   const { data: session } = useSession();
   const [isAdding, setIsAdding] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -35,7 +38,10 @@ export default function UserPage() {
       file.type = "file";
       file.addEventListener("change", async () => {
         if (file.files[0].type !== "text/plain") {
-          alert("txt 파일만 올릴 수 있습니다");
+          toast({
+            title: "알림",
+            description: "txt 파일만 올릴 수 있습니다",
+          });
           return;
         }
         const fileName = file.files[0].name;
@@ -69,6 +75,55 @@ export default function UserPage() {
       });
       file.click();
     } catch (e) {}
+  };
+
+  const dropUploadWritten = (file: any) => {
+    if (file.type !== "text/plain") {
+      toast({
+        title: "알림",
+        description: "txt 파일만 올릴 수 있습니다",
+      });
+      return;
+    }
+    Swal.fire({
+      title: "파일 업로드",
+      text: "파일을 업로드 하시겠습니까?",
+      showCancelButton: true,
+      confirmButtonText: "확인",
+      cancelButtonText: "취소",
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        const key = Date.now();
+        const fileName = file.name;
+        const fileRef = ref(storage, `texts/${fileName}:${key}.txt`);
+        await uploadBytes(fileRef, file).then(async (snapshot) => {
+          getDownloadURL(snapshot.ref).then(async (downUrl) => {
+            const brought = await fetch(
+              `${process.env.NEXT_PUBLIC_SITE}/api/text`,
+              {
+                method: "POST",
+                body: JSON.stringify({
+                  title: `${fileName}:${key}`,
+                  path: downUrl,
+                  order: key,
+                  realTitle: fileName,
+                  user: session?.user?.email,
+                }),
+                cache: "no-store",
+              },
+            );
+            const final = await brought.json();
+            const semi = datas.slice(0);
+            semi.unshift(final.data);
+            setDatas(semi);
+            setLocation({
+              x: -1,
+              y: -1,
+            });
+          });
+        });
+      }
+    });
   };
 
   const addWritten = async () => {
@@ -117,7 +172,11 @@ export default function UserPage() {
       setDatas(tempCopy);
     } catch (error) {
       console.error("Error adding text:", error);
-      alert("Failed to upload text");
+      // alert("Failed to upload text");
+      toast({
+        title: "알림",
+        description: "업로드에 실패하셨습니다",
+      });
       setDatas((prevDatas: any) =>
         prevDatas.filter((item: any) => item.id !== optimisticData.id),
       );
@@ -143,39 +202,70 @@ export default function UserPage() {
     setLoading(false);
   };
 
-  const enterText = (each: string) => {
-    router.push(`/text/${each}`);
-  };
-
   const deleteWritten = async (id: string) => {
-    const willYou = window.confirm("해당 텍스트를 삭제하시겠습니까");
-    if (willYou) {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SITE}/api/text/delete`,
-        {
-          method: "DELETE",
-          body: JSON.stringify({
-            id,
-          }),
-          cache: "no-store",
-        },
-      );
-      const final = await res.json();
-      if (final.message == "삭제 성공") {
-        const temp = [];
-        for (let i = 0; i < datas.length; i++) {
-          if (datas[i].id !== id) {
-            temp.push(datas[i]);
+    Swal.fire({
+      title: "삭제 확인 알림",
+      text: "해당 텍스트를 삭제하시겠습니까",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "확인",
+      cancelButtonText: "취소",
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_SITE}/api/text/delete`,
+          {
+            method: "DELETE",
+            body: JSON.stringify({
+              id,
+            }),
+            cache: "no-store",
+          },
+        );
+        const final = await res.json();
+        if (final.message == "삭제 성공") {
+          const temp = [];
+          for (let i = 0; i < datas.length; i++) {
+            if (datas[i].id !== id) {
+              temp.push(datas[i]);
+            }
           }
+          setDatas(temp);
         }
-        setDatas(temp);
       }
-    }
+    });
+    // const willYou = window.confirm("해당 텍스트를 삭제하시겠습니까");
+    // if (willYou) {
+    //   const res = await fetch(
+    //     `${process.env.NEXT_PUBLIC_SITE}/api/text/delete`,
+    //     {
+    //       method: "DELETE",
+    //       body: JSON.stringify({
+    //         id,
+    //       }),
+    //       cache: "no-store",
+    //     },
+    //   );
+    //   const final = await res.json();
+    //   if (final.message == "삭제 성공") {
+    //     const temp = [];
+    //     for (let i = 0; i < datas.length; i++) {
+    //       if (datas[i].id !== id) {
+    //         temp.push(datas[i]);
+    //       }
+    //     }
+    //     setDatas(temp);
+    //   }
+    // }
   };
 
   const editTitle = async (id: string, newTitle: string) => {
     if (newTitle.length <= 0) {
-      alert("한 글자 이상이어야 합니다");
+      // alert("한 글자 이상이어야 합니다");
+      toast({
+        title: "알림",
+        description: "한 글자 이상이어야 합니다",
+      });
       return;
     }
     setModSwitch(-1);
@@ -219,6 +309,13 @@ export default function UserPage() {
   return (
     <div
       className="relative flex h-screen flex-col items-center justify-start"
+      onDragOver={(e) => {
+        e.preventDefault();
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        dropUploadWritten(e.dataTransfer.files[0]);
+      }}
       onContextMenu={(e) => {
         e.preventDefault();
         setLocation({
@@ -244,17 +341,17 @@ export default function UserPage() {
       )}
       <div>
         {loading ? (
-          <div className="flex h-screen w-full items-center justify-center text-white">
+          <div className="flex h-screen w-full items-center justify-center">
             <Spinner />
           </div>
         ) : (
-          <div className="m-8 flex flex-wrap gap-8">
+          <div className="m-8 flex flex-wrap justify-center gap-8 sm:justify-start">
             <div
-              className="flex w-[140px] flex-col items-center"
+              className="flex w-[112px] flex-col items-center sm:w-[140px]"
               key={0}
               onClick={addWritten}
             >
-              <div className="h-[200px] w-[140px] rounded-md border-2 border-border">
+              <div className="h-[160px] w-[112px] rounded-md border-2 border-border sm:h-[200px] sm:w-[140px]">
                 <div className="ml-4 mr-4 flex h-full cursor-pointer items-center justify-center text-center text-4xl">
                   +
                 </div>
@@ -265,10 +362,10 @@ export default function UserPage() {
                 const inputId = data.title.replace(":", "-");
                 return (
                   <motion.div
-                    className={`z-40 flex h-[240px] w-[140px] ${data.id !== "temp" && "cursor-pointer"} flex-col items-center`}
+                    className={`z-40 flex h-[192px] w-[112px] sm:h-[240px] sm:w-[140px] ${data.id !== "temp" && "cursor-pointer"} flex-col items-center`}
                     key={data.title}
                     onClick={() => {
-                      if (data.id !== "temp") enterText(data.id);
+                      if (data.id !== "temp") router.push(`/text/${data.id}`);
                     }}
                     layout
                     initial={{ opacity: 0, y: -20 }}
@@ -280,7 +377,7 @@ export default function UserPage() {
                       style={{
                         backgroundColor: "var(--color-bg-primary)",
                       }}
-                      className="mh-[200px] relative h-[200px] w-[140px] rounded-md border-2 border-border"
+                      className="relative h-[160px] w-[112px] rounded-md border-2 border-border sm:h-[200px] sm:w-[140px]"
                     >
                       <div
                         className="absolute end-0 p-1"

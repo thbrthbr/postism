@@ -17,12 +17,16 @@ body {
     --color-bg-primary: #fff;
     --color-primary: black;
     --color-secondary: black;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 20% 98%;
   }
 
   :root[data-theme="dark"] {
     --color-bg-primary: black;
     --color-primary: #fff;
     --color-secondary: #fff;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 20% 98%;
   }
 
   :root[data-theme="wood"] {

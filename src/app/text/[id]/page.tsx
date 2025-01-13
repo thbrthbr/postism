@@ -8,8 +8,11 @@ import { FaArrowLeft, FaArrowDown, FaRegSave } from "react-icons/fa";
 import Spinner from "@/components/spinner";
 import { LuDownload } from "react-icons/lu";
 import { useSession } from "next-auth/react";
+import { useToast } from "@/hooks/use-toast";
+import Swal from "sweetalert2";
 
 export default function Text() {
+  const { toast } = useToast();
   const { data: session } = useSession();
   const router = useRouter();
   const param = useParams();
@@ -42,29 +45,59 @@ export default function Text() {
         }
         setTxtTitle(final.data[0].realTitle);
       } else {
-        alert("해당 문서는 존재하지 않습니다");
+        toast({
+          variant: "destructive",
+          title: "알림",
+          description: "해당 문서는 존재하지 않습니다",
+        });
+        // alert("해당 문서는 존재하지 않습니다");
         router.push("/");
       }
     }
   };
 
   const downloadTXT = (e: any) => {
-    const willYou = window.confirm("텍스트 파일은 다운로드 하시겠습니까?");
-    if (willYou) {
-      if (contentRef.current) {
-        const blob = new Blob([contentRef.current.value], {
-          type: "text/plain",
-        });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.download = txtTitle;
-        a.href = url;
-        a.click();
-        setTimeout(() => {
-          window.URL.revokeObjectURL(url);
-        }, 100);
+    Swal.fire({
+      // title: '알림',
+      title: "다운로드",
+      text: "텍스트 파일을 다운로드 하시겠습니까?",
+      // icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: "확인",
+      cancelButtonText: "취소",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        if (contentRef.current) {
+          const blob = new Blob([contentRef.current.value], {
+            type: "text/plain",
+          });
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.download = txtTitle;
+          a.href = url;
+          a.click();
+          setTimeout(() => {
+            window.URL.revokeObjectURL(url);
+          }, 100);
+        }
       }
-    }
+    });
+    // const willYou = window.confirm("텍스트 파일은 다운로드 하시겠습니까?");
+    // if (willYou) {
+    //   if (contentRef.current) {
+    //     const blob = new Blob([contentRef.current.value], {
+    //       type: "text/plain",
+    //     });
+    //     const url = window.URL.createObjectURL(blob);
+    //     const a = document.createElement("a");
+    //     a.download = txtTitle;
+    //     a.href = url;
+    //     a.click();
+    //     setTimeout(() => {
+    //       window.URL.revokeObjectURL(url);
+    //     }, 100);
+    //   }
+    // }
   };
 
   const editTXT = useCallback(async () => {
@@ -76,10 +109,18 @@ export default function Text() {
         await uploadString(fileRef, contentRef.current.value, "raw", {
           contentType: "text/plain;charset=utf-8",
         });
-        alert("저장되었습니다");
+        // alert("저장되었습니다");
+        toast({
+          title: "알림",
+          description: "저장되었습니다",
+        });
         setOriginal(contentRef.current.value);
       } else {
-        alert("수정권한이 없습니다");
+        toast({
+          title: "알림",
+          description: "수정권한이 없습니다",
+        });
+        // alert("수정권한이 없습니다");
       }
     }
   }, [path, isMe]);
@@ -112,10 +153,26 @@ export default function Text() {
   const handleBack = () => {
     if (contentRef.current) {
       if (contentRef.current.value !== original) {
-        const confirm = window.confirm(
-          "내용이 변경되었습니다. \n변경사항을 저장하지 않고 페이지를 이탈하시겠습니까?",
-        );
-        if (confirm) router.push("/");
+        Swal.fire({
+          title: "내용이 변경되었습니다",
+          // text: "변경사항을 저장하지 않고 페이지를 이탈하시겠습니까?",
+          html: "<div>변경사항을 저장하지 않고</div> <div>페이지를 이탈하시겠습니까?</div>",
+          icon: "warning",
+          customClass: {
+            title: "text-xl",
+          },
+          showCancelButton: true,
+          confirmButtonText: "확인",
+          cancelButtonText: "취소",
+        }).then((result) => {
+          if (result.isConfirmed) {
+            router.push("/");
+          }
+        });
+        // const confirm = window.confirm(
+        //   "내용이 변경되었습니다. \n변경사항을 저장하지 않고 페이지를 이탈하시겠습니까?",
+        // );
+        // if (confirm) router.push("/");
       } else router.push("/");
     }
   };
