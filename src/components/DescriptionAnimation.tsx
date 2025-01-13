@@ -22,7 +22,7 @@ export default function DescriptionAnimation() {
   }, []);
 
   return (
-    <div className="flex h-12 w-[375px] items-center justify-center text-center font-lobster text-2xl">
+    <div className="flex h-12 w-full items-center justify-center text-center font-lobster text-2xl">
       {displayText.split("").map((char, index) => {
         return (
           <motion.span

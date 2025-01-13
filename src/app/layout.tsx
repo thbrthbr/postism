@@ -18,7 +18,10 @@ const geistMono = localFont({
 
 export const metadata: Metadata = {
   title: "Postism",
-  description: "Post text anywhere",
+  description: "Get used to Location-Free notepad.",
+  icons: {
+    icon: "/favi.png",
+  },
 };
 
 export default function RootLayout({
