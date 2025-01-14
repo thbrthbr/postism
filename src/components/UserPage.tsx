@@ -341,7 +341,12 @@ export default function UserPage() {
       )}
       <div>
         {loading ? (
-          <div className="flex h-screen w-full items-center justify-center">
+          <div
+            onContextMenu={(e) => {
+              e.stopPropagation();
+            }}
+            className="flex h-screen w-full items-center justify-center"
+          >
             <Spinner />
           </div>
         ) : (
