@@ -72,9 +72,9 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
   try {
     if (id === "delete") {
       const body = await request.json();
-      const { id: textId } = body;
+      const { id: textId, title } = body;
 
-      const deleteResult = await deleteSpecificText(textId);
+      const deleteResult = await deleteSpecificText(textId, title);
 
       if (!deleteResult) {
         return NextResponse.json(

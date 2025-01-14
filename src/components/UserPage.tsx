@@ -202,7 +202,7 @@ export default function UserPage() {
     setLoading(false);
   };
 
-  const deleteWritten = async (id: string) => {
+  const deleteWritten = async (id: string, title: string) => {
     Swal.fire({
       title: "삭제 확인 알림",
       text: "해당 텍스트를 삭제하시겠습니까",
@@ -218,6 +218,7 @@ export default function UserPage() {
             method: "DELETE",
             body: JSON.stringify({
               id,
+              title,
             }),
             cache: "no-store",
           },
@@ -390,7 +391,7 @@ export default function UserPage() {
                         className="absolute end-0 p-1"
                         onClick={(e) => {
                           e.stopPropagation();
-                          deleteWritten(data.id);
+                          deleteWritten(data.id, data.title);
                         }}
                       >
                         <IoIosClose />

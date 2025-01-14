@@ -10,7 +10,7 @@ import {
   query,
   where,
 } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
+import { deleteObject, getStorage, ref } from "firebase/storage";
 import CryptoJS from "crypto-js";
 
 const firebaseConfig = {
@@ -99,9 +99,10 @@ export async function editSpecificTitle({ id, newTitle }) {
   return fetched;
 }
 
-export async function deleteSpecificText(id) {
-  // 여기에 실제 파일 삭제하게 로직 추가 -> title로 받아와서 path로 쓰면 될거임
+export async function deleteSpecificText(id, title) {
+  const fileRef = ref(storage, `texts/${title}.txt`);
   await deleteDoc(doc(db, "text", id));
+  await deleteObject(fileRef);
   return { status: "성공" };
 }
 
