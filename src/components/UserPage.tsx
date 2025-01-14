@@ -346,18 +346,20 @@ export default function UserPage() {
           </div>
         ) : (
           <div className="m-8 flex select-none flex-wrap justify-center gap-8 sm:justify-start">
-            <div
-              className="flex w-[112px] flex-col items-center sm:w-[140px]"
-              key={0}
-              onClick={addWritten}
-            >
-              <div className="h-[160px] w-[112px] rounded-md border-2 border-border sm:h-[200px] sm:w-[140px]">
-                <div className="ml-4 mr-4 flex h-full cursor-pointer items-center justify-center text-center text-4xl">
-                  +
-                </div>
-              </div>
-            </div>
             <AnimatePresence>
+              <motion.div
+                className="flex h-auto max-h-[160px] w-[112px] flex-col items-center sm:max-h-[200px] sm:w-[140px]"
+                key={0}
+                layout
+                layoutId="addButton"
+                onClick={addWritten}
+              >
+                <div className="h-[160px] w-[112px] rounded-md border-2 border-border sm:h-[200px] sm:w-[140px]">
+                  <div className="ml-4 mr-4 flex h-full cursor-pointer items-center justify-center text-center text-4xl">
+                    +
+                  </div>
+                </div>
+              </motion.div>
               {datas.map((data: any, idx: number) => {
                 const inputId = data.title.replace(":", "-");
                 return (
