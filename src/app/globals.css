@@ -17,6 +17,7 @@ body {
     --color-bg-primary: #fff;
     --color-primary: black;
     --color-secondary: black;
+    --color-after-action: #818cf8;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 20% 98%;
   }
@@ -25,6 +26,7 @@ body {
     --color-bg-primary: black;
     --color-primary: #fff;
     --color-secondary: #fff;
+    --color-after-action: #818cf8;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 20% 98%;
   }
@@ -33,7 +35,20 @@ body {
     --color-bg-primary: #f8e1b7;
     --color-primary: #754e1a;
     --color-secondary: #754e1a;
+    --color-after-action: #8eb486;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 20% 98%;
   }
+}
+
+.actioned:hover {
+  border-color: var(--color-after-action);
+  color: var(--color-after-action);
+}
+
+.actioned:focus {
+  border-color: var(--color-after-action);
+  color: var(--color-after-action);
 }
 
 textarea {

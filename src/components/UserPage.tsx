@@ -197,6 +197,7 @@ export default function UserPage() {
     const sorted = texts.data
       .sort((x: any, y: any) => x.order - y.order)
       .reverse();
+    // 여기에 즐겨찾기 정렬 재배치 로직 추가
     setDatas(sorted);
     setDataCount([sorted.length]);
     setLoading(false);
@@ -235,29 +236,6 @@ export default function UserPage() {
         }
       }
     });
-    // const willYou = window.confirm("해당 텍스트를 삭제하시겠습니까");
-    // if (willYou) {
-    //   const res = await fetch(
-    //     `${process.env.NEXT_PUBLIC_SITE}/api/text/delete`,
-    //     {
-    //       method: "DELETE",
-    //       body: JSON.stringify({
-    //         id,
-    //       }),
-    //       cache: "no-store",
-    //     },
-    //   );
-    //   const final = await res.json();
-    //   if (final.message == "삭제 성공") {
-    //     const temp = [];
-    //     for (let i = 0; i < datas.length; i++) {
-    //       if (datas[i].id !== id) {
-    //         temp.push(datas[i]);
-    //       }
-    //     }
-    //     setDatas(temp);
-    //   }
-    // }
   };
 
   const editTitle = async (id: string, newTitle: string) => {
@@ -360,7 +338,7 @@ export default function UserPage() {
                 layoutId="addButton"
                 onClick={addWritten}
               >
-                <div className="h-[160px] w-[112px] rounded-md border-2 border-border sm:h-[200px] sm:w-[140px]">
+                <div className="border-customBorder h-[160px] w-[112px] rounded-md border-2 sm:h-[200px] sm:w-[140px]">
                   <div className="ml-4 mr-4 flex h-full cursor-pointer items-center justify-center text-center text-4xl">
                     +
                   </div>
@@ -370,7 +348,7 @@ export default function UserPage() {
                 const inputId = data.title.replace(":", "-");
                 return (
                   <motion.div
-                    className={`z-40 flex w-[112px] select-none sm:w-[140px] ${data.id !== "temp" && "cursor-pointer"} flex-col items-center`}
+                    className={`actioned z-40 flex w-[112px] select-none sm:w-[140px] ${data.id !== "temp" && "cursor-pointer"} flex-col items-center`}
                     key={data.title}
                     onClick={() => {
                       if (data.id !== "temp") router.push(`/text/${data.id}`);
@@ -384,8 +362,9 @@ export default function UserPage() {
                     <div
                       style={{
                         backgroundColor: "var(--color-bg-primary)",
+                        transition: "background-color 0.7s ease",
                       }}
-                      className="relative h-[160px] w-[112px] rounded-md border-2 border-border sm:h-[200px] sm:w-[140px]"
+                      className="border-customBorder relative h-[160px] w-[112px] rounded-md border-2 sm:h-[200px] sm:w-[140px]"
                     >
                       <div
                         className="absolute end-0 p-1"
@@ -411,8 +390,10 @@ export default function UserPage() {
                     <div
                       className="w-full"
                       onClick={(e) => {
-                        handleEditTitle(e, idx, inputId);
-                        setCurentDataId(data.id);
+                        if (data.id !== "temp") {
+                          handleEditTitle(e, idx, inputId);
+                          setCurentDataId(data.id);
+                        }
                       }}
                     >
                       {modSwitch == idx ? (

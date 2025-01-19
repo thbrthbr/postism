@@ -16,7 +16,7 @@ export default function Menu({ location, customFunctions }: Props) {
 
   return (
     <div
-      className="absolute z-[9998] flex w-[200px] flex-col gap-2 rounded-md border-2 border-border p-2"
+      className="border-customBorder absolute z-[9998] flex w-[200px] flex-col gap-2 rounded-md border-2 p-2"
       style={{
         backgroundColor: "var(--color-bg-primary)",
         left: `${x}px`,
