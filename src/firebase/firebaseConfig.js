@@ -28,13 +28,23 @@ const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
-export async function addText({ title, path, order, realTitle, user }) {
+export async function addText({
+  title,
+  path,
+  order,
+  realTitle,
+  user,
+  liked,
+  parentId,
+}) {
   const newReplay = doc(collection(db, "text"));
   await setDoc(newReplay, {
     id: newReplay.id,
     title,
     realTitle,
     path,
+    liked,
+    parentId,
     order,
     user,
   });
@@ -44,6 +54,8 @@ export async function addText({ title, path, order, realTitle, user }) {
     path,
     order,
     realTitle,
+    liked,
+    parentId,
     user,
   };
 }
@@ -59,6 +71,8 @@ export async function getTexts(id) {
   querySnapshot.forEach((doc) => {
     const aTodo = {
       id: doc.id,
+      liked: doc.data()["liked"],
+      parentId: doc.data()["parentId"],
       realTitle: doc.data()["realTitle"],
       title: doc.data()["title"],
       path: doc.data()["path"],
@@ -82,6 +96,8 @@ export async function getSpecificText(id) {
     fetchedTexts.push({
       id: doc.id,
       title: doc.data()["title"],
+      liked: doc.data()["liked"],
+      parentId: doc.data()["parentId"],
       realTitle: doc.data()["realTitle"],
       path: doc.data()["path"],
       order: doc.data()["order"],
@@ -95,6 +111,14 @@ export async function editSpecificTitle({ id, newTitle }) {
   const todoRef = doc(db, "text", id);
   const fetched = await updateDoc(todoRef, {
     realTitle: newTitle,
+  });
+  return fetched;
+}
+
+export async function editLikeState({ id, isLike }) {
+  const todoRef = doc(db, "text", id);
+  const fetched = await updateDoc(todoRef, {
+    liked: isLike,
   });
   return fetched;
 }

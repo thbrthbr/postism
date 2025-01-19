@@ -42,13 +42,13 @@ body {
 }
 
 .actioned:hover {
-  border-color: var(--color-after-action);
-  color: var(--color-after-action);
+  scale: 1.1;
+  transition: scale 0.2s ease;
 }
 
 .actioned:focus {
-  border-color: var(--color-after-action);
-  color: var(--color-after-action);
+  scale: 1.1;
+  transition: scale 0.2s ease;
 }
 
 textarea {

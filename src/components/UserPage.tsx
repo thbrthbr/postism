@@ -12,6 +12,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useSession } from "next-auth/react";
 import { useToast } from "@/hooks/use-toast";
 import Swal from "sweetalert2";
+import { FaRegBookmark } from "react-icons/fa";
+import Heart from "@/components/Heart";
 
 export default function UserPage() {
   const { toast } = useToast();
@@ -29,6 +31,11 @@ export default function UserPage() {
   const [datas, setDatas] = useState<any>([]);
   const [dataCount, setDataCount] = useState<number[]>([]);
   const [currentDataId, setCurentDataId] = useState("");
+  const [testSwitch, setTestSwitch] = useState<any>({
+    id: "",
+    toggle: false,
+    changeTo: null,
+  });
   const router = useRouter();
 
   const uploadWritten = async () => {
@@ -58,6 +65,8 @@ export default function UserPage() {
                   order: key,
                   realTitle: fileName,
                   user: session?.user?.email,
+                  liked: false,
+                  parentId: 0, // 이거 넣는 방식은 폴더 기능 만들면 바뀔예정
                 }),
                 cache: "no-store",
               },
@@ -108,6 +117,8 @@ export default function UserPage() {
                   order: key,
                   realTitle: fileName,
                   user: session?.user?.email,
+                  liked: false,
+                  parentId: 0, // 이거 넣는 방식은 폴더 기능 만들면 바뀔예정
                 }),
                 cache: "no-store",
               },
@@ -142,6 +153,8 @@ export default function UserPage() {
       order: key,
       realTitle: fileName,
       user: session?.user?.email,
+      liked: false,
+      parentId: 0, // 이거 넣는 방식은 폴더 기능 만들면 바뀔예정
     };
     const temp = [optimisticData, ...datas];
     setDatas((prevDatas: any) => [optimisticData, ...prevDatas]);
@@ -158,6 +171,8 @@ export default function UserPage() {
           order: key,
           realTitle: fileName,
           user: session?.user?.email,
+          liked: false,
+          parentId: 0, // 이거 넣는 방식은 폴더 기능 만들면 바뀔예정
         }),
         cache: "no-store",
       });
@@ -197,9 +212,19 @@ export default function UserPage() {
     const sorted = texts.data
       .sort((x: any, y: any) => x.order - y.order)
       .reverse();
-    // 여기에 즐겨찾기 정렬 재배치 로직 추가
-    setDatas(sorted);
-    setDataCount([sorted.length]);
+
+    // 1. `liked`가 true인 것들을 맨 앞에 배치하고, `order`에 따라 정렬
+    const likedItems = sorted
+      .filter((item: any) => item.liked === true)
+      .sort((x: any, y: any) => x.order - y.order);
+    // 2. `liked`가 false인 것들은 그대로 두기
+    const unlikedItems = sorted.filter((item: any) => item.liked !== true);
+    // 3. 두 그룹을 합침
+    const finalSorted = [...likedItems.reverse(), ...unlikedItems];
+    setDatas(finalSorted);
+    setDataCount([finalSorted.length]);
+    // setDatas(sorted);
+    // setDataCount([sorted.length]);
     setLoading(false);
   };
 
@@ -285,6 +310,23 @@ export default function UserPage() {
     }
   }, [session]);
 
+  useEffect(() => {
+    if (testSwitch.changeTo !== null) {
+      const tempData = datas.slice(0);
+      tempData.map((data: any) => {
+        if (data.id == testSwitch.id) {
+          data.liked = testSwitch.changeTo;
+        }
+      });
+      const likedItems = tempData
+        .filter((item: any) => item.liked === true)
+        .sort((x: any, y: any) => x.order - y.order);
+      const unlikedItems = tempData.filter((item: any) => item.liked !== true);
+      const finalSorted = [...likedItems.reverse(), ...unlikedItems];
+      setDatas(finalSorted);
+    }
+  }, [testSwitch]);
+
   return (
     <div
       className="relative flex h-screen flex-col items-center justify-start"
@@ -349,6 +391,7 @@ export default function UserPage() {
                 return (
                   <motion.div
                     className={`actioned z-40 flex w-[112px] select-none sm:w-[140px] ${data.id !== "temp" && "cursor-pointer"} flex-col items-center`}
+                    // className={`z-40 flex w-[112px] select-none sm:w-[140px] ${data.id !== "temp" && "cursor-pointer"} flex-col items-center`}
                     key={data.title}
                     onClick={() => {
                       if (data.id !== "temp") router.push(`/text/${data.id}`);
@@ -366,6 +409,13 @@ export default function UserPage() {
                       }}
                       className="border-customBorder relative h-[160px] w-[112px] rounded-md border-2 sm:h-[200px] sm:w-[140px]"
                     >
+                      <div className="absolute left-1 top-1">
+                        <Heart
+                          data={data}
+                          liked={data.liked}
+                          setData={setTestSwitch}
+                        />
+                      </div>
                       <div
                         className="absolute end-0 p-1"
                         onClick={(e) => {
