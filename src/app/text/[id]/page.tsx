@@ -82,22 +82,6 @@ export default function Text() {
         }
       }
     });
-    // const willYou = window.confirm("텍스트 파일은 다운로드 하시겠습니까?");
-    // if (willYou) {
-    //   if (contentRef.current) {
-    //     const blob = new Blob([contentRef.current.value], {
-    //       type: "text/plain",
-    //     });
-    //     const url = window.URL.createObjectURL(blob);
-    //     const a = document.createElement("a");
-    //     a.download = txtTitle;
-    //     a.href = url;
-    //     a.click();
-    //     setTimeout(() => {
-    //       window.URL.revokeObjectURL(url);
-    //     }, 100);
-    //   }
-    // }
   };
 
   const editTXT = useCallback(async () => {
@@ -233,6 +217,7 @@ export default function Text() {
       <textarea
         readOnly={true}
         ref={contentRef}
+        spellCheck={false}
         onKeyDown={handleTabKey}
         className="scrollbar relative m-4 h-screen resize-none overflow-y-scroll outline-none"
       ></textarea>
