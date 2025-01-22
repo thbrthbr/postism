@@ -331,6 +331,10 @@ export default function UserPage({ id, parentId }: Props) {
         prevDatas.filter((item: any) => item.id !== optimisticData.id),
       );
     } finally {
+      setLocation({
+        x: -1,
+        y: -1,
+      });
       setIsAdding(false); // 작업 완료 후 로딩 상태 종료
     }
   };
@@ -587,6 +591,9 @@ export default function UserPage({ id, parentId }: Props) {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 20 }}
                       transition={{ duration: 0.8 }}
+                      onContextMenu={(e) => {
+                        e.stopPropagation();
+                      }}
                     >
                       <div
                         style={{
