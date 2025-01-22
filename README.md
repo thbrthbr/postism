@@ -153,9 +153,9 @@ src/
 │   │   ├── like/          # 즐겨찾기 관련 API 요청
 │   │   └── text/          # text파일 관련 API 요청
 │   ├── text/              # 개별 텍스트 페이지
-│   │   └── page.tsx/
-│   ├── page.tsx/          # 개인 페이지 / 로그인 페이지
-│   └── layout.tsx/        # 레이아웃
+│   │   └── page.tsx
+│   ├── page.tsx           # 개인 페이지 / 로그인 페이지
+│   └── layout.tsx         # 레이아웃
 ├── asset/                 # 정적 자산 파일
 ├── components/            # 컴포넌트
 ├── firebase/              # 파이어베이스 api
