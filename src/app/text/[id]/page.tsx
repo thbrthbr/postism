@@ -76,7 +76,7 @@ export default function Text() {
           });
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement("a");
-          a.download = txtTitle;
+          a.download = `${txtTitle}.txt`;
           a.href = url;
           a.click();
           setTimeout(() => {
