@@ -60,14 +60,47 @@ export async function addText({
   };
 }
 
-export async function getTexts(id) {
+export async function addFolder({
+  title,
+  order,
+  realTitle,
+  user,
+  liked,
+  parentId,
+}) {
+  const newReplay = doc(collection(db, "folder"));
+  await setDoc(newReplay, {
+    id: newReplay.id,
+    title,
+    realTitle,
+    liked,
+    parentId,
+    order,
+    user,
+  });
+  return {
+    id: newReplay.id,
+    title,
+    order,
+    realTitle,
+    liked,
+    parentId,
+    user,
+  };
+}
+
+export async function getTexts(id, textId) {
   const querySnapshot = await getDocs(
-    query(collection(db, "text"), where("user", "==", id)),
+    query(
+      collection(db, "text"),
+      where("user", "==", id),
+      where("parentId", "==", textId),
+    ),
   );
   if (querySnapshot.empty) {
     return [];
   }
-  const fetchedReplays = [];
+  const fetchedTexts = [];
   querySnapshot.forEach((doc) => {
     const aTodo = {
       id: doc.id,
@@ -79,9 +112,36 @@ export async function getTexts(id) {
       order: doc.data()["order"],
       user: doc.data()["user"],
     };
-    fetchedReplays.push(aTodo);
+    fetchedTexts.push(aTodo);
   });
-  return fetchedReplays;
+  return fetchedTexts;
+}
+
+export async function getFolders(id, folderId) {
+  const querySnapshot = await getDocs(
+    query(
+      collection(db, "folder"),
+      where("user", "==", id),
+      where("parentId", "==", folderId || "0"),
+    ),
+  );
+  if (querySnapshot.empty) {
+    return [];
+  }
+  const fetchedFolders = [];
+  querySnapshot.forEach((doc) => {
+    const aTodo = {
+      id: doc.id,
+      liked: doc.data()["liked"],
+      parentId: doc.data()["parentId"],
+      realTitle: doc.data()["realTitle"],
+      title: doc.data()["title"],
+      order: doc.data()["order"],
+      user: doc.data()["user"],
+    };
+    fetchedFolders.push(aTodo);
+  });
+  return fetchedFolders;
 }
 
 export async function getSpecificText(id) {
@@ -107,6 +167,28 @@ export async function getSpecificText(id) {
   return fetchedTexts;
 }
 
+export async function getSpecificFolder(id) {
+  const querySnapshot = await getDocs(
+    query(collection(db, "folder"), where("id", "==", id)),
+  );
+  if (querySnapshot.empty) {
+    return [];
+  }
+  const fetchedFolder = [];
+  querySnapshot.forEach((doc) => {
+    fetchedFolder.push({
+      id: doc.id,
+      title: doc.data()["title"],
+      liked: doc.data()["liked"],
+      parentId: doc.data()["parentId"],
+      realTitle: doc.data()["realTitle"],
+      order: doc.data()["order"],
+      user: doc.data()["user"],
+    });
+  });
+  return fetchedFolder;
+}
+
 export async function editSpecificTitle({ id, newTitle }) {
   const todoRef = doc(db, "text", id);
   const fetched = await updateDoc(todoRef, {
@@ -114,9 +196,18 @@ export async function editSpecificTitle({ id, newTitle }) {
   });
   return fetched;
 }
+export async function editSpecificFolderTitle({ id, newTitle }) {
+  const todoRef = doc(db, "folder", id);
+  const fetched = await updateDoc(todoRef, {
+    realTitle: newTitle,
+  });
+  return fetched;
+}
 
-export async function editLikeState({ id, isLike }) {
-  const todoRef = doc(db, "text", id);
+export async function editLikeState({ id, isLike, type }) {
+  let todoRef;
+  if (type === "text") todoRef = doc(db, "text", id);
+  if (type === "folder") todoRef = doc(db, "folder", id);
   const fetched = await updateDoc(todoRef, {
     liked: isLike,
   });
@@ -127,6 +218,11 @@ export async function deleteSpecificText(id, title) {
   const fileRef = ref(storage, `texts/${title}.txt`);
   await deleteDoc(doc(db, "text", id));
   await deleteObject(fileRef);
+  return { status: "성공" };
+}
+
+export async function deleteSpecificFolder(id) {
+  await deleteDoc(doc(db, "folder", id));
   return { status: "성공" };
 }
 
@@ -169,4 +265,28 @@ export async function replaceToInSiteMember({ email }) {
     }
   });
   return replaced;
+}
+
+export async function getFoldersOrderList(id) {
+  const querySnapshot = await getDocs(
+    query(collection(db, "folder"), where("user", "==", id)),
+  );
+  if (querySnapshot.empty) {
+    return [];
+  }
+  const fetchedFolders = [];
+  querySnapshot.forEach((doc) => {
+    const aTodo = {
+      id: doc.id,
+      liked: doc.data()["liked"],
+      parentId: doc.data()["parentId"],
+      realTitle: doc.data()["realTitle"],
+      title: doc.data()["title"],
+      order: doc.data()["order"],
+      user: doc.data()["user"],
+    };
+    fetchedFolders.push(aTodo);
+  });
+  // 여기다 정렬 로직 추가
+  return fetchedFolders;
 }

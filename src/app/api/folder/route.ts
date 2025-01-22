@@ -1,27 +1,24 @@
-import { addText, getTexts } from "@/firebase/firebaseConfig";
+import { addFolder, getFolders } from "@/firebase/firebaseConfig";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
   const id = request.nextUrl.searchParams.get("id")?.split(":")[0];
-  const textId = request.nextUrl.searchParams.get("id")?.split(":")[1];
-  console.log(id);
-  console.log(textId);
-  const fetchedTexts = await getTexts(id || "", textId || "");
+  const folderId = request.nextUrl.searchParams.get("id")?.split(":")[1];
+  const fetchedReplays = await getFolders(id || "", folderId || "");
   const response = {
     message: "성공",
-    data: fetchedTexts,
+    data: fetchedReplays,
     status: 201,
   };
   return NextResponse.json(response, { status: 201 });
 }
 
 export async function POST(request: NextRequest) {
-  const { title, path, order, realTitle, user, liked, parentId } =
+  const { title, order, realTitle, user, liked, parentId } =
     await request.json();
-  const addedText = await addText({
+  const addedText = await addFolder({
     realTitle,
     title,
-    path,
     order,
     user,
     liked,

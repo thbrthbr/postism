@@ -1,9 +1,10 @@
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import ThemeSelect from "./ThemeSelect";
 
 interface Props {
   location: Location;
   customFunctions: any;
+  addFolder?: () => void;
 }
 
 interface Location {
@@ -11,7 +12,7 @@ interface Location {
   y: number;
 }
 
-export default function Menu({ location, customFunctions }: Props) {
+export default function Menu({ location, customFunctions, addFolder }: Props) {
   const { x, y } = location;
 
   return (
@@ -33,7 +34,7 @@ export default function Menu({ location, customFunctions }: Props) {
         <button onClick={customFunctions?.addText}>업로드</button>
       </div>
       <div>
-        <button onClick={() => alert("기능추가예정")}>폴더 추가</button>
+        <button onClick={addFolder}>폴더 추가</button>
       </div>
       <div>
         <button onClick={() => signOut()}>로그아웃</button>

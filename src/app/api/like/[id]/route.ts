@@ -10,8 +10,8 @@ interface RouteContext {
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
     const body = await request.json();
-    const { id, isLike } = body;
-    const result = await editLikeState({ id, isLike });
+    const { id, isLike, type } = body;
+    const result = await editLikeState({ id, isLike, type });
     return NextResponse.json(
       { message: "좋아요 상태 변경 성공", data: result },
       { status: 200 }, // 200 OK

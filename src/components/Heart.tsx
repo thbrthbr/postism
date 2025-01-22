@@ -18,6 +18,7 @@ export default function Heart({ data, liked, setData }: Props) {
       body: JSON.stringify({
         id: data.id,
         isLike: !like,
+        type: data.path ? "text" : "folder",
       }),
       cache: "no-store",
     });
@@ -30,7 +31,12 @@ export default function Heart({ data, liked, setData }: Props) {
         setLike(!like);
         if (setData)
           setData((prev: any) => {
-            return { id: data.id, toggle: !prev.toggle, changeTo: !like };
+            return {
+              id: data.id,
+              toggle: !prev.toggle,
+              changeTo: !like,
+              type: data.path ? "text" : "folder",
+            };
           });
         changeLikeState();
       }}

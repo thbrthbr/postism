@@ -20,6 +20,7 @@ export default function Text() {
   const isMounted = useRef<any>(null);
   const [path, setPath] = useState("");
   const [checkUser, setCheckUser] = useState<string>("");
+  const [parentId, setParentId] = useState("");
   const [loading, setLoading] = useState(true);
   const [original, setOriginal] = useState("");
   const [txtTitle, setTxtTitle] = useState("");
@@ -32,10 +33,12 @@ export default function Text() {
         cache: "no-store",
       });
       const final = await result.json();
+      console.log(final);
       if (final.data.length > 0) {
         const path = final.data[0].path;
         const response = await fetch(path);
         const textContent = await response.text();
+        setParentId(final.data[0].parentId || "0");
         setOriginal(textContent);
         setPath(final.data[0].title);
         if (contentRef.current) {
@@ -150,14 +153,14 @@ export default function Text() {
           cancelButtonText: "취소",
         }).then((result) => {
           if (result.isConfirmed) {
-            router.push("/");
+            if (parentId === "0") router.push("/");
+            else router.push(`/folder/${parentId}`);
           }
         });
-        // const confirm = window.confirm(
-        //   "내용이 변경되었습니다. \n변경사항을 저장하지 않고 페이지를 이탈하시겠습니까?",
-        // );
-        // if (confirm) router.push("/");
-      } else router.push("/");
+      } else {
+        if (parentId === "0") router.push("/");
+        else router.push(`/folder/${parentId}`);
+      }
     }
   };
 
