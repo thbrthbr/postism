@@ -6,7 +6,7 @@
 
 ### 프로젝트 소개
 
-*이런 분들에게 좋아요!*
+_이런 분들에게 좋아요!_
 
 - PC와 모바일에서의 동기화된 메모공간이 필요한 분들
 - 기존 텍스트 파일에 덧붙여 작성할 때 굳이 어디 클라우드나 저장소에 들어가 다운 받은 후 작성하고 새로 업로드하기 귀찮으신 분들
@@ -26,9 +26,6 @@ https://postism.vercel.app/
 2024년 11월 25일 ~ 현재 진행 중
 (주요 기능 개발 완료 후 지속적으로 개선 및 유지 보수 중)
 
-
-
-
 <br>
 
 ## **🚀 설치 및 실행 방법**
@@ -38,6 +35,7 @@ https://postism.vercel.app/
 ```bash
 git clone https://github.com/thbrthbr/postism.git
 ```
+
 프로젝트를 받습니다
 
 ```bash
@@ -86,8 +84,6 @@ npm run dev
 
 </table>
 
-
-
 <br>
 
 ## **💻 화면 구성**
@@ -101,6 +97,7 @@ npm run dev
 </table>
 
 ![Image](https://github.com/user-attachments/assets/a5eff8c5-99dc-4802-abaf-49fada33c8c6)
+
 - OAuth로 구글계정을 통해 소셜로그인을 통해 간편히 입장
 
   <br>
@@ -144,21 +141,19 @@ npm run dev
 - 해당 텍스트의 작성자가 아니면 수정 불가능 (뷰어모드)
 - 허용된 유저일 시 편집 권한 부여 (추가 예정)
 
-
   <br>
-
 
 ## **📂 폴더 구조**
 
 ```plaintext
 src/
 ├── app/                   # Next.js App Router 디렉토리
-│   ├──  api               # API 요청 함수들
+│   ├── api                # API 요청 함수들
 │   │   ├── auth/          # 소셜로그인 관련 API 요청
 │   │   ├── like/          # 즐겨찾기 관련 API 요청
 │   │   └── text/          # text파일 관련 API 요청
-│   ├──  text              # 개별 텍스트 페이지
-│   │   └── page.tsx/          
+│   ├── text               # 개별 텍스트 페이지
+│   │   └── page.tsx/
 │   ├── page.tsx/          # 개인 페이지 / 로그인 페이지
 │   └── layout.tsx/        # 레이아웃
 ├── asset/                 # 정적 자산 파일
