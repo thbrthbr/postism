@@ -83,7 +83,7 @@ export default function UserPage({ id, parentId }: Props) {
                   realTitle: fileName,
                   user: session?.user?.email,
                   liked: false,
-                  parentId: 0, // 이거 넣는 방식은 폴더 기능 만들면 바뀔예정
+                  parentId: id || "0",
                 }),
                 cache: "no-store",
               },
@@ -135,7 +135,7 @@ export default function UserPage({ id, parentId }: Props) {
                   realTitle: fileName,
                   user: session?.user?.email,
                   liked: false,
-                  parentId: 0, // 이거 넣는 방식은 폴더 기능 만들면 바뀔예정
+                  parentId: id || "0",
                 }),
                 cache: "no-store",
               },
