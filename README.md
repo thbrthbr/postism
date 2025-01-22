@@ -1,5 +1,7 @@
 # **POSTISM**
 
+![Image](https://github.com/user-attachments/assets/8eefc277-d35e-466c-8e60-e564f2797285)
+
 **POSTISM**은 자신만의 메모 공간을 제공하는 서비스입니다
 
 <br/>
