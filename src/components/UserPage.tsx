@@ -14,21 +14,14 @@ import { useSession } from "next-auth/react";
 import { useToast } from "@/hooks/use-toast";
 import Swal from "sweetalert2";
 import { FaRegFolderOpen } from "react-icons/fa";
-import {
-  DragDropContext,
-  Draggable,
-  Droppable,
-  DropResult,
-} from "@hello-pangea/dnd";
-import { FaRegBookmark } from "react-icons/fa";
 import Heart from "@/components/Heart";
 
 interface Props {
   id?: string;
-  parentId?: String;
+  // parentId?: String;
 }
 
-export default function UserPage({ id, parentId }: Props) {
+export default function UserPage({ id }: Props) {
   const { toast } = useToast();
   const pathName = usePathname().split("/")[1];
   const { data: session } = useSession();
@@ -53,6 +46,7 @@ export default function UserPage({ id, parentId }: Props) {
     changeTo: null,
     type: "",
   });
+  const [loadedParentId, setLoadedParentId] = useState("");
   const router = useRouter();
 
   const uploadWritten = async () => {
@@ -362,13 +356,13 @@ export default function UserPage({ id, parentId }: Props) {
         );
         const final = await res.json();
         if (final.message == "삭제 성공") {
-          const temp = [];
+          const tempArr = [];
           for (let i = 0; i < datas.length; i++) {
-            if (datas[i].id !== id) {
-              temp.push(datas[i]);
+            if (datas[i].id !== "temp") {
+              tempArr.push(datas[i]);
             }
           }
-          setDatas(temp);
+          setDatas(tempArr);
         }
       }
     });
@@ -460,6 +454,19 @@ export default function UserPage({ id, parentId }: Props) {
   };
 
   const handleDragEnd = () => {};
+
+  const getParentId = async () => {
+    const result = await fetch(`/api/folder/${id}`, {
+      method: "GET",
+      cache: "no-store",
+    });
+    const final = await result.json();
+    setLoadedParentId(final.data[0].parentId);
+  };
+
+  useEffect(() => {
+    if (pathName === "folder") getParentId();
+  }, []);
 
   useEffect(() => {
     if (session && session?.user?.email !== previousEmail) {
@@ -558,12 +565,12 @@ export default function UserPage({ id, parentId }: Props) {
           </div>
         ) : (
           <>
-            {pathName === "folder" && (
+            {loadedParentId && pathName === "folder" && (
               <div className="m-8 w-full">
                 <button
                   onClick={() => {
-                    if (parentId !== "0") {
-                      router.push(`/folder/${parentId}`);
+                    if (loadedParentId !== "0") {
+                      router.push(`/folder/${loadedParentId}`);
                     } else {
                       router.push("/");
                     }
@@ -600,7 +607,7 @@ export default function UserPage({ id, parentId }: Props) {
                           backgroundColor: "var(--color-bg-primary)",
                           transition: "background-color 0.7s ease",
                         }}
-                        className="border-customBorder relative h-[160px] w-[112px] rounded-md border-2 sm:h-[200px] sm:w-[140px]"
+                        className="relative h-[160px] w-[112px] rounded-md border-2 border-customBorder sm:h-[200px] sm:w-[140px]"
                       >
                         <div className="absolute left-1 top-1">
                           <Heart
@@ -690,7 +697,7 @@ export default function UserPage({ id, parentId }: Props) {
                     e.stopPropagation();
                   }}
                 >
-                  <div className="border-customBorder h-[160px] w-[112px] rounded-md border-2 sm:h-[200px] sm:w-[140px]">
+                  <div className="h-[160px] w-[112px] rounded-md border-2 border-customBorder sm:h-[200px] sm:w-[140px]">
                     <div className="ml-4 mr-4 flex h-full cursor-pointer items-center justify-center text-center text-4xl">
                       +
                     </div>
@@ -720,7 +727,7 @@ export default function UserPage({ id, parentId }: Props) {
                           backgroundColor: "var(--color-bg-primary)",
                           transition: "background-color 0.7s ease",
                         }}
-                        className="border-customBorder relative h-[160px] w-[112px] rounded-md border-2 sm:h-[200px] sm:w-[140px]"
+                        className="relative h-[160px] w-[112px] rounded-md border-2 border-customBorder sm:h-[200px] sm:w-[140px]"
                       >
                         <div className="absolute left-1 top-1">
                           <Heart
