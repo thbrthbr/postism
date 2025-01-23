@@ -1,4 +1,4 @@
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import ThemeSelect from "./ThemeSelect";
 import { TbFolderSymlink } from "react-icons/tb";
 import { useState } from "react";
@@ -26,6 +26,7 @@ interface Path {
 
 export default function Menu({ type, location, customFunctions }: Props) {
   const [pathSwitch, setPathSwitch] = useState(false);
+  const { data: session } = useSession();
   const [path, setPath] = useState<Path>({
     name: "",
     route: "0",
@@ -39,7 +40,7 @@ export default function Menu({ type, location, customFunctions }: Props) {
   const getChildren = async (parentRoute: string) => {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SITE}/api/children/${parentRoute}`,
+        `${process.env.NEXT_PUBLIC_SITE}/api/children/${parentRoute}?user=${session?.user?.email}`,
         {
           method: "GET",
           cache: "no-store",

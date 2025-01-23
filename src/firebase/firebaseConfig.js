@@ -189,9 +189,13 @@ export async function getSpecificFolder(id) {
   return fetchedFolder;
 }
 
-export async function getChildren(id) {
+export async function getChildren(id, user) {
   const querySnapshot = await getDocs(
-    query(collection(db, "folder"), where("parentId", "==", id)),
+    query(
+      collection(db, "folder"),
+      where("user", "==", user),
+      where("parentId", "==", id),
+    ),
   );
   const fetchedFolder = [];
   querySnapshot.forEach((doc) => {

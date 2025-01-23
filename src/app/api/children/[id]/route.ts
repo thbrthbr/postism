@@ -13,8 +13,13 @@ interface RouteContext {
 
 export async function GET(request: NextRequest, context: RouteContext) {
   const { id } = context.params;
+  const url = new URL(request.url);
+  const searchParams = url.searchParams;
+  const queryParam = searchParams.get("user");
+
+  console.log(queryParam);
   try {
-    const fetchedSearchFolder = await getChildren(id);
+    const fetchedSearchFolder = await getChildren(id, queryParam);
 
     if (!fetchedSearchFolder) {
       return NextResponse.json(
