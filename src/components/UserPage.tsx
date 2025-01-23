@@ -565,14 +565,16 @@ export default function UserPage({ id }: Props) {
           </div>
         ) : (
           <>
-            {loadedParentId && pathName === "folder" && (
+            {pathName === "folder" && (
               <div className="m-8 w-full">
                 <button
                   onClick={() => {
-                    if (loadedParentId !== "0") {
-                      router.push(`/folder/${loadedParentId}`);
-                    } else {
-                      router.push("/");
+                    if (loadedParentId) {
+                      if (loadedParentId !== "0") {
+                        router.push(`/folder/${loadedParentId}`);
+                      } else {
+                        router.push("/");
+                      }
                     }
                   }}
                 >
