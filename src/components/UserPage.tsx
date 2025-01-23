@@ -587,6 +587,13 @@ export default function UserPage({ id }: Props) {
       }}
       onContextMenu={(e) => {
         e.preventDefault();
+        setLocation2({
+          x: -1,
+          y: -1,
+          id: "",
+          fileType: "",
+          parentId: "",
+        });
         setLocation({
           x: e.pageX,
           y: e.pageY,
@@ -683,6 +690,10 @@ export default function UserPage({ id }: Props) {
                       onContextMenu={(e) => {
                         e.stopPropagation();
                         e.preventDefault();
+                        setLocation({
+                          x: -1,
+                          y: -1,
+                        });
                         setLocation2({
                           x: e.pageX,
                           y: e.pageY,
@@ -811,6 +822,10 @@ export default function UserPage({ id }: Props) {
                       onContextMenu={(e) => {
                         e.stopPropagation();
                         e.preventDefault();
+                        setLocation({
+                          x: -1,
+                          y: -1,
+                        });
                         setLocation2({
                           x: e.pageX,
                           y: e.pageY,
