@@ -31,6 +31,13 @@ export default function UserPage({ id }: Props) {
     x: -1,
     y: -1,
   });
+  const [location2, setLocation2] = useState({
+    x: -1,
+    y: -1,
+    id: "",
+    fileType: "",
+    parentId: "",
+  });
   const [modSwitch, setModSwitch] = useState(-1);
   const [previousEmail, setPreviousEmail] = useState<string | null | undefined>(
     null,
@@ -358,7 +365,7 @@ export default function UserPage({ id }: Props) {
         if (final.message == "삭제 성공") {
           const tempArr = [];
           for (let i = 0; i < datas.length; i++) {
-            if (datas[i].id !== "temp") {
+            if (datas[i].id !== id) {
               tempArr.push(datas[i]);
             }
           }
@@ -453,7 +460,63 @@ export default function UserPage({ id }: Props) {
     }, 0);
   };
 
-  const handleDragEnd = () => {};
+  const editPath = async (
+    id: string,
+    type: string,
+    newPath: string,
+    parentId: string,
+  ) => {
+    if (parentId === newPath) {
+      toast({
+        title: "알림",
+        description: "같은 경로로는 이동할 수 없습니다",
+      });
+      return;
+    }
+    const result = await fetch(
+      `${process.env.NEXT_PUBLIC_SITE}/api/children/edit-path`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          id,
+          type,
+          newPath,
+        }),
+        cache: "no-store",
+      },
+    );
+    const final = await result.json();
+    if (final.message == "경로 수정 성공") {
+      if (type === "folder") {
+        const temp = [];
+        for (let i = 0; i < folders.length; i++) {
+          if (folders[i].id !== id) {
+            temp.push(folders[i]);
+          }
+        }
+        setFolders(temp);
+      } else {
+        const tempArr = [];
+        for (let i = 0; i < datas.length; i++) {
+          if (datas[i].id !== id) {
+            tempArr.push(datas[i]);
+          }
+        }
+        setDatas(tempArr);
+      }
+      toast({
+        title: "알림",
+        description: `${type === "folder" ? "폴더" : "파일"}이 이동되었습니다`,
+      });
+      setLocation2({
+        x: -1,
+        y: -1,
+        id: "",
+        fileType: "",
+        parentId: "",
+      });
+    }
+  };
 
   const getParentId = async () => {
     const result = await fetch(`/api/folder/${id}`, {
@@ -535,6 +598,13 @@ export default function UserPage({ id }: Props) {
           x: -1,
           y: -1,
         });
+        setLocation2({
+          x: -1,
+          y: -1,
+          id: "",
+          fileType: "",
+          parentId: "",
+        });
         if (modSwitch !== -1)
           if (modSwitch >= 0)
             editTitle(currentDataId, datas[modSwitch].realTitle);
@@ -549,8 +619,18 @@ export default function UserPage({ id }: Props) {
       {location.x !== -1 && (
         <Menu
           location={location}
-          customFunctions={{ addText: uploadWritten }}
-          addFolder={addFolders}
+          customFunctions={{ addText: uploadWritten, addFolder: addFolders }}
+        />
+      )}
+      {location2.x !== -1 && (
+        <Menu
+          type="onFile"
+          location={location2}
+          customFunctions={{
+            addText: uploadWritten,
+            addFolder: addFolders,
+            editPath: editPath,
+          }}
         />
       )}
       <div className="w-full">
@@ -602,6 +682,14 @@ export default function UserPage({ id }: Props) {
                       transition={{ duration: 0.8 }}
                       onContextMenu={(e) => {
                         e.stopPropagation();
+                        e.preventDefault();
+                        setLocation2({
+                          x: e.pageX,
+                          y: e.pageY,
+                          id: folder.id,
+                          fileType: "folder",
+                          parentId: folder.parentId,
+                        });
                       }}
                     >
                       <div
@@ -722,6 +810,14 @@ export default function UserPage({ id }: Props) {
                       transition={{ duration: 0.8 }}
                       onContextMenu={(e) => {
                         e.stopPropagation();
+                        e.preventDefault();
+                        setLocation2({
+                          x: e.pageX,
+                          y: e.pageY,
+                          id: data.id,
+                          fileType: "file",
+                          parentId: data.parentId,
+                        });
                       }}
                     >
                       <div

@@ -189,6 +189,25 @@ export async function getSpecificFolder(id) {
   return fetchedFolder;
 }
 
+export async function getChildren(id) {
+  const querySnapshot = await getDocs(
+    query(collection(db, "folder"), where("parentId", "==", id)),
+  );
+  const fetchedFolder = [];
+  querySnapshot.forEach((doc) => {
+    fetchedFolder.push({
+      id: doc.id,
+      title: doc.data()["title"],
+      liked: doc.data()["liked"],
+      parentId: doc.data()["parentId"],
+      realTitle: doc.data()["realTitle"],
+      order: doc.data()["order"],
+      user: doc.data()["user"],
+    });
+  });
+  return fetchedFolder;
+}
+
 export async function editSpecificTitle({ id, newTitle }) {
   const todoRef = doc(db, "text", id);
   const fetched = await updateDoc(todoRef, {
@@ -210,6 +229,16 @@ export async function editLikeState({ id, isLike, type }) {
   if (type === "folder") todoRef = doc(db, "folder", id);
   const fetched = await updateDoc(todoRef, {
     liked: isLike,
+  });
+  return fetched;
+}
+
+export async function editPath({ id, type, newPath }) {
+  let todoRef;
+  if (type === "folder") todoRef = doc(db, "folder", id);
+  else todoRef = doc(db, "text", id);
+  const fetched = await updateDoc(todoRef, {
+    parentId: newPath,
   });
   return fetched;
 }
