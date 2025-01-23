@@ -142,7 +142,9 @@ export default function Menu({ type, location, customFunctions }: Props) {
             <button onClick={() => setPathSwitch((prev) => !prev)}>이동</button>
           </div>
           {pathSwitch && (
-            <div className="w-full border p-2">{renderTree(path)}</div>
+            <div className="w-full border-2 border-customBorder p-2">
+              {renderTree(path)}
+            </div>
           )}
         </>
       )}
