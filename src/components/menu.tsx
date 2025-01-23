@@ -84,7 +84,7 @@ export default function Menu({ type, location, customFunctions }: Props) {
           <button
             key={`${node.route}_path`}
             onClick={() => getChildren(node.route)}
-            className="block text-start"
+            className="w-full text-start"
           >
             {Array.from({ length: node.depth }).map((_, idx: number) => {
               return <span key={`${node.route}_${idx}`}>&nbsp;&nbsp;</span>;

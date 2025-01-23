@@ -33,7 +33,6 @@ export default function Text() {
         cache: "no-store",
       });
       const final = await result.json();
-      console.log(final);
       if (final.data.length > 0) {
         const path = final.data[0].path;
         const response = await fetch(path);
@@ -198,9 +197,11 @@ export default function Text() {
         </div>
       )}
       <div className="flex w-full items-center justify-center gap-16 px-1 py-3">
-        <button onClick={handleBack}>
-          <FaArrowLeft />
-        </button>
+        {isMe && (
+          <button onClick={handleBack}>
+            <FaArrowLeft />
+          </button>
+        )}
         <button onClick={editTXT}>
           <FaRegSave />
         </button>
