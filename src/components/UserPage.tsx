@@ -375,7 +375,7 @@ export default function UserPage({ id }: Props) {
     });
   };
 
-  const deleteFolder = async (id: string, title: string) => {
+  const deleteFolder = async (id: string) => {
     Swal.fire({
       title: "삭제 확인 알림",
       text: "해당 폴더를 삭제하시겠습니까",
@@ -710,7 +710,7 @@ export default function UserPage({ id }: Props) {
                           className="absolute end-0 p-1"
                           onClick={(e) => {
                             e.stopPropagation();
-                            deleteFolder(folder.id, folder.title);
+                            deleteFolder(folder.id);
                           }}
                         >
                           <IoIosClose />
