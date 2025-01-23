@@ -24,6 +24,7 @@ export default function ThemeSelect() {
           <SelectItem value="light">Light</SelectItem>
           <SelectItem value="dark">Dark</SelectItem>
           <SelectItem value="wood">Wood</SelectItem>
+          <SelectItem value="pink">Pink</SelectItem>
         </SelectGroup>
       </SelectContent>
     </Select>

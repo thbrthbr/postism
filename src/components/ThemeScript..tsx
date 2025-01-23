@@ -1,4 +1,4 @@
-export type Theme = "light" | "dark" | "wood";
+export type Theme = "light" | "dark" | "wood" | "pink";
 
 declare global {
   interface Window {

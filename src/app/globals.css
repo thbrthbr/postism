@@ -39,6 +39,15 @@ body {
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 20% 98%;
   }
+
+  :root[data-theme="pink"] {
+    --color-bg-primary: #ffadb8;
+    --color-primary: #c40056;
+    --color-secondary: #c40056;
+    --color-after-action: #c40056;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 20% 98%;
+  }
 }
 
 .actioned:hover {
