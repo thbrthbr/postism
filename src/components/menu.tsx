@@ -27,7 +27,7 @@ interface Path {
 export default function Menu({ type, location, customFunctions }: Props) {
   const [pathSwitch, setPathSwitch] = useState(false);
   const [path, setPath] = useState<Path>({
-    name: "/",
+    name: "",
     route: "0",
     depth: 0,
     childrenArr: [],
@@ -88,7 +88,7 @@ export default function Menu({ type, location, customFunctions }: Props) {
             {Array.from({ length: node.depth }).map((_, idx: number) => {
               return <span key={`${node.route}_${idx}`}>&nbsp;&nbsp;</span>;
             })}
-            <span>{node.name}</span>
+            <span>{node.name}/</span>
           </button>
           <button
             onClick={() => {
