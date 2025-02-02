@@ -240,7 +240,7 @@ export default function UserPage({ id }: Props) {
     // 3. 두 그룹을 합침
     const finalSorted = [...likedItems.reverse(), ...unlikedItems];
     setFolders(finalSorted);
-    setFoldersCount([finalSorted.length]);
+    setFoldersCount([finalSorted.length - 1]);
   };
 
   const getWritten = async () => {
@@ -277,7 +277,7 @@ export default function UserPage({ id }: Props) {
 
     setIsAdding(true);
     const key = Date.now();
-    const fileName = `untitled-${foldersCount[foldersCount.length - 1]}`;
+    const fileName = `untitled-${foldersCount[foldersCount.length - 1] + 1}`;
 
     // Optimistic UI - UI에 새 데이터 먼저 추가
     const optimisticData = {
