@@ -114,7 +114,7 @@ export default function Menu({ type, location, customFunctions }: Props) {
       className="absolute z-[9998] flex w-[200px] flex-col gap-2 rounded-md border-2 border-customBorder p-2"
       style={{
         backgroundColor: "var(--color-bg-primary)",
-        left: `${x}px`,
+        left: x < window.innerWidth / 2 ? `${x}px` : `${x - 200}px`,
         top: `${y}px`,
       }}
       onClick={(e) => {

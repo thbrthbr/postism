@@ -506,7 +506,7 @@ export default function UserPage({ id }: Props) {
       }
       toast({
         title: "알림",
-        description: `${type === "folder" ? "폴더" : "파일"}이 이동되었습니다`,
+        description: `${type === "folder" ? "폴더가" : "파일이"} 이동되었습니다`,
       });
       setLocation2({
         x: -1,
