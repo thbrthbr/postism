@@ -53,6 +53,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
       );
     }
 
+    // if (id === "edit-content") {
+    //   const { id: textId, newTitle } = body;
+
+    //   const result = await editSpecificTitle({ id: textId, newTitle });
+
+    //   return NextResponse.json(
+    //     { message: "제목 수정 성공", data: result },
+    //     { status: 200 }, // 200 OK
+    //   );
+    // }
+
     return NextResponse.json(
       { message: "잘못된 요청입니다." },
       { status: 400 }, // 400 Bad Request

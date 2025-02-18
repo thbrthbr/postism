@@ -91,6 +91,19 @@ export default function Text() {
       if (isMe) {
         // 여기서 다이렉트로 수정하는 건 별로임
         // 나중에 api를 하나 새로 만들고 api 요청할 때 jwt? 토큰? 을 검사해서 유효한 경우에만 아래 uploadString 요청을 보내야함
+
+        // const result = await fetch(`${process.env.NEXT_PUBLIC_SITE}/api/text/edit-content`, {
+        //   method: "POST",
+        //   body: JSON.stringify({
+        //     id,
+        //     newTitle,
+        //   }),
+        //   cache: "no-store",
+        // });
+        // const final = await result.json();
+
+        // console.log(session);
+        // console.log(checkUser);
         const fileRef = ref(storage, `texts/${path}.txt`);
         await uploadString(fileRef, contentRef.current.value, "raw", {
           contentType: "text/plain;charset=utf-8",
@@ -198,13 +211,15 @@ export default function Text() {
       )}
       <div className="flex w-full items-center justify-center gap-16 px-1 py-3">
         {isMe && (
-          <button onClick={handleBack}>
-            <FaArrowLeft />
-          </button>
+          <>
+            <button onClick={handleBack}>
+              <FaArrowLeft />
+            </button>
+            <button onClick={editTXT}>
+              <FaRegSave />
+            </button>
+          </>
         )}
-        <button onClick={editTXT}>
-          <FaRegSave />
-        </button>
         <button onClick={downloadTXT}>
           <LuDownload className="font-bold" />
         </button>
