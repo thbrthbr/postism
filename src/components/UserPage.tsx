@@ -25,6 +25,7 @@ export default function UserPage({ id }: Props) {
   const { toast } = useToast();
   const pathName = usePathname().split("/")[1];
   const { data: session } = useSession();
+  const isMounted = useRef(false);
   const [isAdding, setIsAdding] = useState(false);
   const [loading, setLoading] = useState(true);
   const [location, setLocation] = useState({
@@ -527,50 +528,51 @@ export default function UserPage({ id }: Props) {
     setLoadedParentId(final.data[0].parentId);
   };
 
+  const changePosition = (datas: any) => {
+    const tempData = datas.slice(0);
+    tempData.map((data: any) => {
+      if (data.id == testSwitch.id) {
+        data.liked = testSwitch.changeTo;
+      }
+    });
+    const likedItems = tempData
+      .filter((item: any) => item.liked === true)
+      .sort((x: any, y: any) => x.order - y.order);
+    const unlikedItems = tempData.filter((item: any) => item.liked !== true);
+    const finalSorted = [...likedItems.reverse(), ...unlikedItems];
+    return finalSorted;
+  };
+
   useEffect(() => {
     if (pathName === "folder") getParentId();
   }, []);
 
   useEffect(() => {
-    if (session && session?.user?.email !== previousEmail) {
-      // session이 갱신되었을 때만 getWritten을 호출
-      getWritten();
-      setPreviousEmail(session?.user?.email);
+    if (isMounted.current) {
+      if (session && session?.user?.email !== previousEmail) {
+        // session이 갱신되었을 때만 getWritten을 호출
+        getWritten();
+        setPreviousEmail(session?.user?.email);
+      } else {
+        toast({
+          title: "알림",
+          description: "다시 로그인 해주세요",
+        });
+        router.push("/");
+      }
+    } else {
+      isMounted.current = true;
     }
   }, [session]);
 
   useEffect(() => {
     if (testSwitch.changeTo !== null) {
       if (testSwitch.type === "text") {
-        const tempData = datas.slice(0);
-        tempData.map((data: any) => {
-          if (data.id == testSwitch.id) {
-            data.liked = testSwitch.changeTo;
-          }
-        });
-        const likedItems = tempData
-          .filter((item: any) => item.liked === true)
-          .sort((x: any, y: any) => x.order - y.order);
-        const unlikedItems = tempData.filter(
-          (item: any) => item.liked !== true,
-        );
-        const finalSorted = [...likedItems.reverse(), ...unlikedItems];
-        setDatas(finalSorted);
+        const sorted = changePosition(datas.slice(0));
+        setDatas(sorted);
       } else {
-        const tempData = folders.slice(0);
-        tempData.map((data: any) => {
-          if (data.id == testSwitch.id) {
-            data.liked = testSwitch.changeTo;
-          }
-        });
-        const likedItems = tempData
-          .filter((item: any) => item.liked === true)
-          .sort((x: any, y: any) => x.order - y.order);
-        const unlikedItems = tempData.filter(
-          (item: any) => item.liked !== true,
-        );
-        const finalSorted = [...likedItems.reverse(), ...unlikedItems];
-        setFolders(finalSorted);
+        const sorted = changePosition(folders.slice(0));
+        setFolders(sorted);
       }
     }
   }, [testSwitch]);
