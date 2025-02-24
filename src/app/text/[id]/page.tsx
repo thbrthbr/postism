@@ -262,6 +262,10 @@ export default function Text() {
         readOnly={true}
         ref={contentRef}
         spellCheck={false}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
         onKeyDown={handleTabKey}
         className="scrollbar relative m-4 h-screen resize-none overflow-y-scroll outline-none"
       ></textarea>
