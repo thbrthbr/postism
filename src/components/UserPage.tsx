@@ -554,11 +554,13 @@ export default function UserPage({ id }: Props) {
       setPreviousEmail(session?.user?.email);
     } else {
       if (isMounted.current) {
-        toast({
-          title: "알림",
-          description: "다시 로그인 해주세요",
-        });
-        router.push("/");
+        if (!session) {
+          toast({
+            title: "알림",
+            description: "다시 로그인 해주세요",
+          });
+          router.push("/");
+        }
       } else {
         isMounted.current = true;
       }
