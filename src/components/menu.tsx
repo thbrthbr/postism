@@ -6,7 +6,7 @@ import { useState } from "react";
 interface Props {
   type?: string;
   location: Location;
-  customFunctions: any;
+  customFunctions?: any;
 }
 
 interface Location {
@@ -147,6 +147,13 @@ export default function Menu({ type, location, customFunctions }: Props) {
               {renderTree(path)}
             </div>
           )}
+        </>
+      )}
+      {type === "inFile" && (
+        <>
+          <div className="flex">
+            <ThemeSelect />
+          </div>
         </>
       )}
     </div>

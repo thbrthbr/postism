@@ -548,20 +548,20 @@ export default function UserPage({ id }: Props) {
   }, []);
 
   useEffect(() => {
-    if (isMounted.current) {
-      if (session && session?.user?.email !== previousEmail) {
-        // session이 갱신되었을 때만 getWritten을 호출
-        getWritten();
-        setPreviousEmail(session?.user?.email);
-      } else {
+    if (session && session?.user?.email !== previousEmail) {
+      // session이 갱신되었을 때만 getWritten을 호출
+      getWritten();
+      setPreviousEmail(session?.user?.email);
+    } else {
+      if (isMounted.current) {
         toast({
           title: "알림",
           description: "다시 로그인 해주세요",
         });
         router.push("/");
+      } else {
+        isMounted.current = true;
       }
-    } else {
-      isMounted.current = true;
     }
   }, [session]);
 

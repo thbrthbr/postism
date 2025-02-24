@@ -10,6 +10,7 @@ import { LuDownload } from "react-icons/lu";
 import { useSession } from "next-auth/react";
 import { useToast } from "@/hooks/use-toast";
 import Swal from "sweetalert2";
+import Menu from "@/components/menu";
 
 export default function Text() {
   const { toast } = useToast();
@@ -25,6 +26,10 @@ export default function Text() {
   const [original, setOriginal] = useState("");
   const [txtTitle, setTxtTitle] = useState("");
   const [isMe, setIsMe] = useState(false); // 이 정도로 수정 가능하게 되어 있는데 이거 추후에 수정해야함
+  const [location, setLocation] = useState({
+    x: -1,
+    y: -1,
+  });
 
   const getContent = async () => {
     if (param) {
@@ -200,7 +205,24 @@ export default function Text() {
   }, [handleSaveShortcut]);
 
   return (
-    <div className="relative flex h-screen w-full flex-col">
+    <div
+      className="relative flex h-screen w-full flex-col"
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setLocation({
+          x: e.pageX,
+          y: e.pageY,
+        });
+      }}
+      onClick={(e) => {
+        e.preventDefault();
+        setLocation({
+          x: -1,
+          y: -1,
+        });
+      }}
+    >
+      {location.x !== -1 && <Menu location={location} type="inFile" />}
       {loading && (
         <div
           style={{ backgroundColor: "var(--color-bg-primary)" }}
@@ -234,6 +256,9 @@ export default function Text() {
         </button>
       </div>
       <textarea
+        style={{
+          transition: "background-color 0.7s ease",
+        }}
         readOnly={true}
         ref={contentRef}
         spellCheck={false}
