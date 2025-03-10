@@ -323,3 +323,22 @@ export async function getFoldersOrderList(id) {
   // 여기다 정렬 로직 추가
   return fetchedFolders;
 }
+
+export async function getUserPath(user) {
+  const querySnapshot = await getDocs(
+    query(collection(db, "folder"), where("user", "==", user)),
+  );
+  const fetchedPath = [];
+  querySnapshot.forEach((doc) => {
+    fetchedPath.push({
+      id: doc.id,
+      title: doc.data()["title"],
+      liked: doc.data()["liked"],
+      parentId: doc.data()["parentId"],
+      realTitle: doc.data()["realTitle"],
+      order: doc.data()["order"],
+      user: doc.data()["user"],
+    });
+  });
+  return fetchedPath;
+}
