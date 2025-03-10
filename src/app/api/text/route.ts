@@ -4,8 +4,6 @@ import { NextRequest, NextResponse } from "next/server";
 export async function GET(request: NextRequest) {
   const id = request.nextUrl.searchParams.get("id")?.split(":")[0];
   const textId = request.nextUrl.searchParams.get("id")?.split(":")[1];
-  console.log(id);
-  console.log(textId);
   const fetchedTexts = await getTexts(id || "", textId || "");
   const response = {
     message: "성공",

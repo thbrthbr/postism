@@ -17,7 +17,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const searchParams = url.searchParams;
   const queryParam = searchParams.get("user");
 
-  console.log(queryParam);
   try {
     const fetchedSearchFolder = await getChildren(id, queryParam);
 
