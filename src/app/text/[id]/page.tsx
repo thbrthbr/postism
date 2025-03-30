@@ -32,7 +32,7 @@ export default function Text() {
     y: -1,
   });
 
-  locationControl(contentRef, original);
+  // locationControl(contentRef, original);
 
   const getContent = async () => {
     if (param) {
