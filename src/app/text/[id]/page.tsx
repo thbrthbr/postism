@@ -11,6 +11,7 @@ import { useSession } from "next-auth/react";
 import { useToast } from "@/hooks/use-toast";
 import Swal from "sweetalert2";
 import Menu from "@/components/menu";
+import locationControl from "@/components/locationControl";
 
 export default function Text() {
   const { toast } = useToast();
@@ -30,6 +31,8 @@ export default function Text() {
     x: -1,
     y: -1,
   });
+
+  locationControl(contentRef, original);
 
   const getContent = async () => {
     if (param) {
