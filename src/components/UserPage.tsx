@@ -245,6 +245,13 @@ export default function UserPage({ id }: Props) {
   };
 
   const getWritten = async () => {
+    if (!session) {
+      toast({
+        title: "알림",
+        description: "다시 로그인 해주세요",
+      });
+      router.push("/");
+    }
     getFolders();
     const result = await fetch(
       `${process.env.NEXT_PUBLIC_SITE}/api/text?id=${session?.user?.email}:${id || "0"}`,
