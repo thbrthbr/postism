@@ -37,7 +37,7 @@ const CodeEditor: FC<CodeEditorProps> = ({
       options={{
         readOnly,
         fontFamily: "Arial, Helvetica, sans-serif",
-        fontSize: 14,
+        fontSize: 16,
         automaticLayout: true,
         lineNumbers: "off",
         minimap: { enabled: false },
