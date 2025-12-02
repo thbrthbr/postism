@@ -44,11 +44,24 @@ const CodeEditor: FC<CodeEditorProps> = ({
         smoothScrolling: true,
         scrollBeyondLastLine: false,
         tabSize: 2,
-        wordWrap: "off",
+        wordWrap: "on",
         cursorBlinking: "smooth",
         renderWhitespace: "none",
         quickSuggestions: false,
         fixedOverflowWidgets: true,
+        scrollbar: {
+          verticalHasArrows: false,
+          horizontalHasArrows: false,
+          useShadows: false, // ✅ 그림자 효과 제거
+          verticalScrollbarSize: 8, // ✅ 두께 줄이기
+          horizontalScrollbarSize: 8,
+          handleMouseWheel: true,
+          vertical: "visible", // ✅ 스크롤 thumb만 표시
+        },
+
+        // ✅ 시각적 효과 최소화
+        overviewRulerLanes: 0, // 우측 얇은 색 표시줄 제거
+        overviewRulerBorder: false, // 우측 테두리 제거
       }}
     />
   );
