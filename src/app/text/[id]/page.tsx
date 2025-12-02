@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useCallback } from "react";
-import { ref, uploadString } from "firebase/storage";
+import { ref as storageRef, uploadString } from "firebase/storage";
 import { storage } from "@/firebase/firebaseConfig";
 import { FaArrowLeft, FaArrowDown, FaRegSave } from "react-icons/fa";
 import Spinner from "@/components/spinner";
@@ -28,8 +28,11 @@ export default function Text() {
   const router = useRouter();
   const param = useParams();
   const monaco = useMonaco();
+
   const editorRef = useRef<any>(null);
-  const isMounted = useRef<boolean>(false);
+  const contentRef = useRef<any>(null);
+  const textAreaRef = useRef<HTMLTextAreaElement | null>(null);
+  const isMounted = useRef(false);
 
   const [path, setPath] = useState("");
   const [checkUser, setCheckUser] = useState<string>("");
@@ -44,10 +47,20 @@ export default function Text() {
   );
   const [location, setLocation] = useState({ x: -1, y: -1 });
 
-  // ===== CSS 변수 읽기 & 색상 정규화 =====
+  const [isMobile, setIsMobile] = useState(false);
+
+  // ✅ 클라이언트에서만 모바일 여부 판별
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const ua = navigator.userAgent;
+    setIsMobile(/Mobi|Android|iPhone|iPad/i.test(ua));
+  }, []);
+
+  // ✅ CSS 변수 읽기
   const getColorVar = (name: string) =>
     getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
+  // ✅ 색상 포맷 정리 (#fff → #ffffff)
   const normalizeColor = (color: string) => {
     if (!color) return "#000000";
     const hex = color.replace("#", "").trim();
@@ -63,7 +76,7 @@ export default function Text() {
     return color;
   };
 
-  // ===== Monaco 테마 정의 (light/dark/wood/pink 전부) =====
+  // ✅ Monaco 테마 정의
   const defineMonacoThemes = useCallback(() => {
     if (!monaco) return;
 
@@ -90,17 +103,17 @@ export default function Text() {
           "editorLineNumber.foreground": fg + "55",
           "editorLineNumber.activeForeground": fg,
           "editor.lineHighlightBackground": fg + "15",
-          "editor.selectionBackground": fg + "55",
+          "editor.selectionBackground": fg + "66",
+          "editor.selectionHighlightBackground": fg + "55",
           "editorCursor.foreground": fg,
         },
       });
     }
 
-    // 원래 테마 복귀
     document.documentElement.dataset.theme = window.__theme || "light";
   }, [monaco]);
 
-  // ===== 테마 동기화 =====
+  // ✅ 테마 동기화
   useEffect(() => {
     if (!monaco || typeof window === "undefined") return;
     defineMonacoThemes();
@@ -111,24 +124,23 @@ export default function Text() {
     };
   }, [monaco, defineMonacoThemes]);
 
-  // ===== 파일 불러오기 (원래 로직 그대로) =====
+  // ✅ 파일 불러오기
   const getContent = async () => {
     if (!param) return;
-    const result = await fetch(`/api/text/${param.id}`, {
-      method: "GET",
-      cache: "no-store",
-    });
+    const result = await fetch(`/api/text/${param.id}`, { cache: "no-store" });
     const final = await result.json();
+
     if (final.data.length > 0) {
       const file = final.data[0];
-      const response = await fetch(file.path);
-      const textContent = await response.text();
-      setParentId(file.parentId || "0");
-      setOriginal(textContent);
+      const res = await fetch(file.path);
+      const text = await res.text();
+
       setPath(file.title);
-      setCheckUser(file.user);
       setTxtTitle(file.realTitle);
-      setValue(textContent); // textarea.value 대신 상태로 관리
+      setParentId(file.parentId || "0");
+      setCheckUser(file.user);
+      setOriginal(text);
+      setValue(text);
       setLoading(false);
     } else {
       toast({
@@ -140,8 +152,20 @@ export default function Text() {
     }
   };
 
-  // ===== 저장 (원래 editTXT 로직, textarea → value 사용) =====
+  // ✅ 현재 내용 가져오기 (PC/모바일 공통)
+  const getCurrentContent = () => {
+    if (isMobile) {
+      return value;
+    }
+    if (editorRef.current) {
+      return editorRef.current.getValue();
+    }
+    return value;
+  };
+
+  // ✅ 저장
   const editTXT = useCallback(async () => {
+    const content = getCurrentContent();
     if (!isMe) {
       toast({
         title: "알림",
@@ -149,34 +173,27 @@ export default function Text() {
       });
       return;
     }
-    const content = editorRef.current ? editorRef.current.getValue() : value; // 혹시 모를 경우 대비
-
-    const fileRef = ref(storage, `texts/${path}.txt`);
+    const fileRef = storageRef(storage, `texts/${path}.txt`);
     await uploadString(fileRef, content, "raw", {
       contentType: "text/plain;charset=utf-8",
     });
-    toast({
-      title: "알림",
-      description: "저장되었습니다",
-    });
     setOriginal(content);
-  }, [isMe, path, value, toast]);
+    toast({ title: "알림", description: "저장되었습니다" });
+  }, [path, isMe, value]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ===== Ctrl+S 단축키 (원래 handleSaveShortcut) =====
+  // ✅ Ctrl+S 저장
   useEffect(() => {
-    const fn = (event: KeyboardEvent) => {
-      if (event.ctrlKey && (event.key === "s" || event.key === "S")) {
-        event.preventDefault();
+    const fn = (e: KeyboardEvent) => {
+      if (e.ctrlKey && (e.key === "s" || e.key === "S")) {
+        e.preventDefault();
         editTXT();
       }
     };
     document.addEventListener("keydown", fn);
-    return () => {
-      document.removeEventListener("keydown", fn);
-    };
+    return () => document.removeEventListener("keydown", fn);
   }, [editTXT]);
 
-  // ===== mount 시 최초 1회 콘텐츠 로드 =====
+  // ✅ mount 시 최초 데이터 로드
   useEffect(() => {
     if (!isMounted.current) {
       getContent();
@@ -184,25 +201,50 @@ export default function Text() {
     }
   }, []);
 
-  // ===== 권한 체크 (원래 checkUser === session.email 로직) =====
+  // ✅ 권한 체크
   useEffect(() => {
-    if (checkUser === session?.user?.email) {
-      setIsMe(true);
-    }
+    if (checkUser === session?.user?.email) setIsMe(true);
   }, [checkUser, session?.user?.email]);
 
-  // ===== 뒤로가기 (원래 handleBack 로직, textarea → editorRef/value) =====
-  const handleBack = () => {
-    const current = editorRef.current ? editorRef.current.getValue() : value;
+  // ✅ Monaco Editor mount 시 ref 연결
+  const handleEditorMount = (editor: any) => {
+    editorRef.current = editor;
+  };
 
+  // ✅ 내용 변경 핸들러
+  const handleChange = (val?: string) => {
+    if (val !== undefined) setValue(val);
+  };
+
+  // ✅ Tab 입력 (textarea 전용)
+  const handleTabKey = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Tab") {
+      event.preventDefault();
+      const target = event.target as HTMLTextAreaElement;
+      const start = target.selectionStart;
+      const end = target.selectionEnd;
+      const tabSpace = "  ";
+
+      const before = value.slice(0, start);
+      const after = value.slice(end);
+      const next = before + tabSpace + after;
+      setValue(next);
+
+      requestAnimationFrame(() => {
+        target.selectionStart = target.selectionEnd = start + tabSpace.length;
+      });
+    }
+  };
+
+  // ✅ 뒤로가기
+  const handleBack = () => {
+    const current = getCurrentContent();
     if (current !== original) {
       Swal.fire({
         title: "내용이 변경되었습니다",
-        html: "<div>변경사항을 저장하지 않고</div> <div>페이지를 이탈하시겠습니까?</div>",
+        html: "<div>변경사항을 저장하지 않고</div><div>페이지를 이탈하시겠습니까?</div>",
         icon: "warning",
-        customClass: {
-          title: "text-xl",
-        },
+        customClass: { title: "text-xl" },
         showCancelButton: true,
         confirmButtonText: "확인",
         cancelButtonText: "취소",
@@ -218,38 +260,43 @@ export default function Text() {
     }
   };
 
-  // ===== Editor mount 시 인스턴스 ref에 연결 =====
-  const handleEditorMount = (editor: any) => {
-    editorRef.current = editor;
-  };
-
-  // ===== Editor 내용 변경시 value 업데이트 =====
-  const handleChange = (val: string) => {
-    setValue(val);
+  // ✅ 맨 아래로 스크롤
+  const scrollToBottom = () => {
+    if (isMobile) {
+      if (textAreaRef.current) {
+        textAreaRef.current.scrollTo({
+          top: textAreaRef.current.scrollHeight,
+        });
+      }
+      return;
+    }
+    const editor = editorRef.current;
+    if (!editor) return;
+    const model = editor.getModel();
+    if (!model) return;
+    editor.revealLine(model.getLineCount());
   };
 
   return (
     <div
       className="relative flex h-screen w-full flex-col"
       onContextMenu={(e) => {
+        // ✅ PC에서만 커스텀 메뉴, 모바일은 기본 메뉴/드래그 유지
+        if (isMobile) return;
         e.preventDefault();
         setLocation({
           x: e.pageX,
           y: e.pageY,
         });
       }}
-      onClick={(e) => {
-        e.preventDefault();
-        setLocation({
-          x: -1,
-          y: -1,
-        });
+      onClick={() => {
+        setLocation({ x: -1, y: -1 });
       }}
     >
-      {/* 우클릭 메뉴 (원래 그대로) */}
+      {/* 우클릭 메뉴 */}
       {location.x !== -1 && <Menu location={location} type="inFile" />}
 
-      {/* 로딩 오버레이 (원래 그대로) */}
+      {/* 로딩 오버레이 */}
       {loading && (
         <div
           style={{ backgroundColor: "var(--color-bg-primary)" }}
@@ -259,76 +306,76 @@ export default function Text() {
         </div>
       )}
 
-      {/* 상단 메뉴바 – 원래 버튼들 전부 유지 */}
+      {/* 상단 메뉴바 */}
       <div className="flex w-full items-center justify-center gap-16 px-1 py-3">
         {isMe && (
           <>
-            <button onClick={handleBack}>
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={handleBack}
+            >
               <FaArrowLeft />
             </button>
-            <button onClick={editTXT}>
+            <button onMouseDown={(e) => e.preventDefault()} onClick={editTXT}>
               <FaRegSave />
             </button>
           </>
         )}
         <button
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => {
-            const blob = new Blob([value], {
-              type: "text/plain",
-            });
+            const blob = new Blob([value], { type: "text/plain" });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement("a");
-            a.download = `${txtTitle}.txt`;
             a.href = url;
+            a.download = `${txtTitle}.txt`;
             a.click();
-            setTimeout(() => {
-              window.URL.revokeObjectURL(url);
-            }, 100);
+            window.URL.revokeObjectURL(url);
           }}
         >
           <LuDownload className="font-bold" />
         </button>
         <button
-          onClick={() => {
-            const editor = editorRef.current;
-            if (!editor) return;
-            const model = editor.getModel();
-            editor.revealLine(model.getLineCount());
-          }}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={scrollToBottom}
         >
           <FaArrowDown />
         </button>
       </div>
 
-      {/* textarea → CodeEditor로 교체 (기능만 바뀜) */}
-      <div
-        className="relative m-4 flex-1 overflow-hidden rounded-md"
-        style={{
-          transition: "background-color 0.7s ease",
-          backgroundColor: "var(--color-bg-primary)",
-        }}
-      >
-        <CodeEditor
-          value={value}
-          onChange={handleChange}
-          readOnly={!isMe}
-          theme={theme}
-          onMount={handleEditorMount}
-        />
-      </div>
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          WebkitUserSelect: "text",
-          userSelect: "text",
-          touchAction: "manipulation",
-          background: "transparent",
-          pointerEvents: /Mobi|Android/i.test(navigator.userAgent)
-            ? "auto"
-            : "none", // 모바일일 때만 활성화
-        }}
-      ></div>
+      {/* 본문: PC는 Monaco, 모바일은 textarea */}
+      {isMobile ? (
+        <textarea
+          style={{
+            transition: "background-color 0.7s ease",
+          }}
+          readOnly={true}
+          ref={contentRef}
+          spellCheck={false}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onKeyDown={handleTabKey}
+          className="scrollbar relative m-4 h-screen resize-none overflow-y-scroll outline-none"
+        ></textarea>
+      ) : (
+        <div
+          className="relative m-4 flex-1 overflow-hidden rounded-md"
+          style={{
+            transition: "background-color 0.7s ease",
+            backgroundColor: "var(--color-bg-primary)",
+          }}
+        >
+          <CodeEditor
+            value={value}
+            onChange={handleChange}
+            readOnly={!isMe}
+            theme={theme}
+            onMount={handleEditorMount}
+          />
+        </div>
+      )}
     </div>
   );
 }
