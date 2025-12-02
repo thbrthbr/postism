@@ -4,7 +4,7 @@ import { FC } from "react";
 import Editor, { OnChange } from "@monaco-editor/react";
 
 interface CodeEditorProps {
-  value: string;
+  value?: string; // ✅ optional로 변경 (초기값만 받음)
   language?: string;
   onChange?: (value: string) => void;
   readOnly?: boolean;
@@ -24,15 +24,19 @@ const CodeEditor: FC<CodeEditorProps> = ({
     if (val !== undefined && onChange) onChange(val);
   };
 
+  const handleMount = (editor: any) => {
+    if (onMount) onMount(editor);
+    // ✅ 최초 1회만 수동으로 값 세팅
+    if (value) editor.setValue(value);
+  };
+
   return (
     <Editor
       height="100%"
       defaultLanguage={language}
-      value={value}
+      // ❌ 여기서 value를 넘기지 말 것
       onChange={handleChange}
-      onMount={(editor) => {
-        if (onMount) onMount(editor);
-      }}
+      onMount={handleMount}
       theme={theme}
       options={{
         readOnly,
@@ -40,16 +44,16 @@ const CodeEditor: FC<CodeEditorProps> = ({
         fontSize: 16,
         automaticLayout: true,
         lineNumbers: "off",
-        lineNumbersMinChars: 0, // ✅ 여백 최소화
-        glyphMargin: false, // ✅ breakpoint 아이콘 영역 제거
-        folding: false, // ✅ 코드 접기 영역 제거
+        lineNumbersMinChars: 0,
+        glyphMargin: false,
+        folding: false,
         minimap: { enabled: false },
         smoothScrolling: true,
         scrollBeyondLastLine: false,
         tabSize: 2,
         wordWrap: "on",
-        wordWrapColumn: 0, // ✅ wrap 위치를 에디터 끝으로 밀기
-        wrappingIndent: "none", // ✅ 들여쓰기 없이 바로 이어지게
+        wordWrapColumn: 0,
+        wrappingIndent: "none",
         cursorBlinking: "smooth",
         renderWhitespace: "none",
         quickSuggestions: false,
@@ -58,22 +62,21 @@ const CodeEditor: FC<CodeEditorProps> = ({
         scrollbar: {
           verticalHasArrows: false,
           horizontalHasArrows: false,
-          useShadows: false, // ✅ 그림자 효과 제거
-          verticalScrollbarSize: 8, // ✅ 두께 줄이기
+          useShadows: false,
+          verticalScrollbarSize: 8,
           horizontalScrollbarSize: 8,
           handleMouseWheel: true,
-          vertical: "visible", // ✅ 스크롤 thumb만 표시
+          vertical: "visible",
         },
-
-        scrollBeyondLastColumn: 0, // ✅ 우측 스크롤 여백 완전히 제거
-        lineDecorationsWidth: 0, // ✅ 좌측/우측 장식 여백 완전 제거
-        padding: { top: 8, bottom: 8 }, // ✅ 편집 영역 위아래 약간 여백만 남기기
-        overviewRulerLanes: 0, // 우측 얇은 색 표시줄 제거
-        overviewRulerBorder: false, // 우측 테두리 제거
-        renderLineHighlight: "none", // ← 클릭된 줄 강조 비활성화
-        selectionHighlight: false, // ← 선택 영역 주변 하이라이트 제거
-        occurrencesHighlight: "off", // ← 동일 단어 자동 하이라이트 제거
-        renderLineHighlightOnlyWhenFocus: false, // ← 포커스 시에도 유지하지 않음
+        scrollBeyondLastColumn: 0,
+        lineDecorationsWidth: 0,
+        padding: { top: 8, bottom: 8 },
+        overviewRulerLanes: 0,
+        overviewRulerBorder: false,
+        renderLineHighlight: "none",
+        selectionHighlight: false,
+        occurrencesHighlight: "off",
+        renderLineHighlightOnlyWhenFocus: false,
       }}
     />
   );

@@ -362,7 +362,7 @@ export default function Text() {
           }}
         >
           <CodeEditor
-            value={original} // ✅ 초기값만 전달, 이후 입력은 Monaco 내부에서 관리
+            // value={original} // ✅ 초기값만 전달, 이후 입력은 Monaco 내부에서 관리
             readOnly={!isMe}
             theme={theme}
             onMount={handleEditorMount}
