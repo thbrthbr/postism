@@ -121,7 +121,7 @@ export default function Text() {
     };
   }, [monaco, defineMonacoThemes]);
 
-  // ✅ 파일 불러오기
+  // ✅ 파일 불러오기 (공통 데이터만 세팅)
   const getContent = async () => {
     if (!param) return;
     const result = await fetch(`/api/text/${param.id}`, { cache: "no-store" });
@@ -136,14 +136,7 @@ export default function Text() {
       setTxtTitle(file.realTitle);
       setParentId(file.parentId || "0");
       setCheckUser(file.user);
-      setOriginal(text);
-
-      if (isMobile && textAreaRef.current) {
-        textAreaRef.current.value = text;
-      } else if (editorRef.current) {
-        editorRef.current.setValue(text);
-      }
-
+      setOriginal(text); // ✅ 여기까지만, 실제 DOM/에디터 반영은 아래 useEffect에서
       setLoading(false);
     } else {
       toast({
@@ -154,6 +147,21 @@ export default function Text() {
       router.push("/");
     }
   };
+
+  // ✅ original / isMobile 변화 시 실제 뷰에 반영 (ref만 사용)
+  useEffect(() => {
+    if (original === "") return;
+
+    if (isMobile) {
+      if (textAreaRef.current) {
+        textAreaRef.current.value = original;
+      }
+    } else {
+      if (editorRef.current) {
+        editorRef.current.setValue(original);
+      }
+    }
+  }, [original, isMobile]);
 
   // ✅ 현재 내용 가져오기 (PC/모바일 공통)
   const getCurrentContent = () => {
@@ -178,7 +186,7 @@ export default function Text() {
     });
     setOriginal(content);
     toast({ title: "알림", description: "저장되었습니다" });
-  }, [path, isMe]);
+  }, [path, isMe, getCurrentContent]);
 
   // ✅ Ctrl+S 저장
   useEffect(() => {
@@ -195,8 +203,8 @@ export default function Text() {
   // ✅ mount 시 최초 데이터 로드
   useEffect(() => {
     if (!isMounted.current) {
-      getContent();
       isMounted.current = true;
+      getContent();
     }
   }, []);
 
@@ -208,6 +216,10 @@ export default function Text() {
   // ✅ Monaco Editor mount 시 ref 연결
   const handleEditorMount = (editor: any) => {
     editorRef.current = editor;
+    // original이 이미 로드돼 있다면 여기서도 한 번 맞춰줌
+    if (original) {
+      editor.setValue(original);
+    }
   };
 
   // ✅ Tab 입력 (textarea 전용)
@@ -273,7 +285,7 @@ export default function Text() {
     <div
       className="relative flex h-screen w-full flex-col"
       onContextMenu={(e) => {
-        if (isMobile) return;
+        if (isMobile) return; // 모바일에서는 기본 드래그/컨텍스트 유지
         e.preventDefault();
         setLocation({ x: e.pageX, y: e.pageY });
       }}
@@ -350,7 +362,7 @@ export default function Text() {
           }}
         >
           <CodeEditor
-            value={original}
+            value={original} // ✅ 초기값만 전달, 이후 입력은 Monaco 내부에서 관리
             readOnly={!isMe}
             theme={theme}
             onMount={handleEditorMount}
