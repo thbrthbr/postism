@@ -11,8 +11,7 @@ import { useSession } from "next-auth/react";
 import { useToast } from "@/hooks/use-toast";
 import Swal from "sweetalert2";
 import Menu from "@/components/menu";
-import CodeEditor from "@/components/CodeEditor";
-import { useMonaco } from "@monaco-editor/react";
+import Editor, { useMonaco } from "@monaco-editor/react";
 
 declare global {
   interface Window {
@@ -88,14 +87,15 @@ export default function Text() {
         colors: {
           "editor.background": bg,
           "editor.foreground": fg,
-          "editor.lineHighlightBackground": fg + "20",
+          "editorLineNumber.foreground": fg + "55", // 좌측 줄번호는 보이게
+          "editorLineNumber.activeForeground": fg,
+          "editor.lineHighlightBackground": fg + "15",
           "editor.selectionBackground": fg + "33",
           "editorCursor.foreground": fg,
         },
       });
     }
 
-    // 원래 테마 복귀
     document.documentElement.dataset.theme = window.__theme || "light";
   }, [monaco]);
 
@@ -120,12 +120,11 @@ export default function Text() {
       const file = final.data[0];
       const res = await fetch(file.path);
       const text = await res.text();
-
-      setPath(file.title);
-      setTxtTitle(file.realTitle);
       setParentId(file.parentId || "0");
-      setCheckUser(file.user);
       setOriginal(text);
+      setPath(file.title);
+      setCheckUser(file.user);
+      setTxtTitle(file.realTitle);
       setValue(text);
       setLoading(false);
     } else {
@@ -140,14 +139,21 @@ export default function Text() {
 
   // ✅ 저장
   const editTXT = useCallback(async () => {
-    if (!editorRef.current || !isMe) return;
-    const content = editorRef.current.getValue();
-    const fileRef = ref(storage, `texts/${path}.txt`);
-    await uploadString(fileRef, content, "raw", {
-      contentType: "text/plain;charset=utf-8",
-    });
-    setOriginal(content);
-    toast({ title: "알림", description: "저장되었습니다" });
+    if (!editorRef.current) return;
+    if (isMe) {
+      const content = editorRef.current.getValue();
+      const fileRef = ref(storage, `texts/${path}.txt`);
+      await uploadString(fileRef, content, "raw", {
+        contentType: "text/plain;charset=utf-8",
+      });
+      toast({ title: "알림", description: "저장되었습니다" });
+      setOriginal(content);
+    } else {
+      toast({
+        title: "알림",
+        description: "수정권한이 없습니다",
+      });
+    }
   }, [path, isMe]);
 
   // ✅ Ctrl+S 저장
@@ -175,16 +181,6 @@ export default function Text() {
     if (checkUser === session?.user?.email) setIsMe(true);
   }, [checkUser, session?.user?.email]);
 
-  // ✅ Editor mount 시 ref 연결
-  const handleEditorMount = (editor: any) => {
-    editorRef.current = editor;
-  };
-
-  // ✅ 내용 변경 핸들러
-  const handleChange = (val?: string) => {
-    if (val !== undefined) setValue(val);
-  };
-
   // ✅ 뒤로가기
   const handleBack = () => {
     if (!editorRef.current) return;
@@ -192,7 +188,7 @@ export default function Text() {
     if (current !== original) {
       Swal.fire({
         title: "내용이 변경되었습니다",
-        html: "<div>변경사항을 저장하지 않고</div><div>페이지를 이탈하시겠습니까?</div>",
+        html: "<div>변경사항을 저장하지 않고</div> <div>페이지를 이탈하시겠습니까?</div>",
         icon: "warning",
         customClass: { title: "text-xl" },
         showCancelButton: true,
@@ -217,10 +213,7 @@ export default function Text() {
         e.preventDefault();
         setLocation({ x: e.pageX, y: e.pageY });
       }}
-      onClick={(e) => {
-        e.preventDefault();
-        setLocation({ x: -1, y: -1 });
-      }}
+      onClick={() => setLocation({ x: -1, y: -1 })}
     >
       {/* ✅ 우클릭 메뉴 */}
       {location.x !== -1 && <Menu location={location} type="inFile" />}
@@ -239,48 +232,29 @@ export default function Text() {
       <div className="flex w-full items-center justify-center gap-16 px-1 py-3">
         {isMe && (
           <>
-            <button
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleBack();
-              }}
-            >
+            <button onClick={handleBack}>
               <FaArrowLeft />
             </button>
-
-            <button
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                editTXT();
-              }}
-            >
+            <button onClick={editTXT}>
               <FaRegSave />
             </button>
           </>
         )}
-
         <button
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation();
+          onClick={() => {
             const blob = new Blob([value], { type: "text/plain" });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement("a");
-            a.href = url;
             a.download = `${txtTitle}.txt`;
+            a.href = url;
             a.click();
-            window.URL.revokeObjectURL(url);
+            setTimeout(() => window.URL.revokeObjectURL(url), 100);
           }}
         >
-          <LuDownload />
+          <LuDownload className="font-bold" />
         </button>
-
         <button
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation();
+          onClick={() => {
             const editor = editorRef.current;
             if (!editor) return;
             const model = editor.getModel();
@@ -291,19 +265,30 @@ export default function Text() {
         </button>
       </div>
 
-      {/* ✅ Monaco Code Editor */}
-      <div
-        className="relative m-4 flex-1 overflow-hidden rounded-md"
-        style={{
-          transition: "background-color 0.7s ease",
-          backgroundColor: "var(--color-bg-primary)",
-        }}
-      >
-        <CodeEditor
+      {/* ✅ Monaco Editor (기능만 교체) */}
+      <div className="relative m-4 flex-1 overflow-hidden rounded-md">
+        <Editor
+          height="100%"
+          defaultLanguage="plaintext"
           value={value}
-          onChange={handleChange}
-          readOnly={!isMe}
+          onChange={(v) => setValue(v ?? "")}
+          onMount={(editor) => (editorRef.current = editor)}
           theme={theme}
+          options={{
+            readOnly: !isMe,
+            fontFamily: "JetBrains Mono, Consolas, monospace",
+            fontSize: 14,
+            lineNumbers: "on",
+            minimap: { enabled: false },
+            scrollBeyondLastLine: false,
+            automaticLayout: true,
+            tabSize: 2,
+            wordWrap: "off",
+            smoothScrolling: true,
+            cursorBlinking: "smooth",
+            renderWhitespace: "none",
+            renderLineHighlight: "line",
+          }}
         />
       </div>
     </div>
