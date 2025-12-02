@@ -36,7 +36,7 @@ const CodeEditor: FC<CodeEditorProps> = ({
       theme={theme}
       options={{
         readOnly,
-        fontFamily: "JetBrains Mono, Consolas, monospace",
+        // fontFamily: "JetBrains Mono, Consolas, monospace",
         fontSize: 14,
         automaticLayout: true,
         lineNumbers: "off",
@@ -62,6 +62,10 @@ const CodeEditor: FC<CodeEditorProps> = ({
         // ✅ 시각적 효과 최소화
         overviewRulerLanes: 0, // 우측 얇은 색 표시줄 제거
         overviewRulerBorder: false, // 우측 테두리 제거
+        renderLineHighlight: "none", // ← 클릭된 줄 강조 비활성화
+        selectionHighlight: false, // ← 선택 영역 주변 하이라이트 제거
+        occurrencesHighlight: "off", // ← 동일 단어 자동 하이라이트 제거
+        renderLineHighlightOnlyWhenFocus: false, // ← 포커스 시에도 유지하지 않음
       }}
     />
   );
