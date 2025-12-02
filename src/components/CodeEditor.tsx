@@ -1,14 +1,15 @@
 "use client";
 
 import { FC } from "react";
-import Editor, { OnMount } from "@monaco-editor/react";
+import Editor, { OnChange } from "@monaco-editor/react";
 
-export interface CodeEditorProps {
+interface CodeEditorProps {
   value: string;
   language?: string;
   onChange?: (value: string) => void;
   readOnly?: boolean;
-  theme?: "light" | "dark" | "wood" | "pink";
+  theme?: string;
+  onMount?: (editor: any) => void;
 }
 
 const CodeEditor: FC<CodeEditorProps> = ({
@@ -16,41 +17,22 @@ const CodeEditor: FC<CodeEditorProps> = ({
   language = "plaintext",
   onChange,
   readOnly = false,
-  theme = "light",
+  theme = "vs-dark",
+  onMount,
 }) => {
-  // ✅ onChange에서 undefined 처리 없이 문자열만 받게
-  const handleChange = (val?: string) => {
-    if (onChange && typeof val === "string") onChange(val);
-  };
-
-  // ✅ Tab 눌렀을 때 공백 2칸 삽입
-  const handleMount: OnMount = (editor, monaco) => {
-    editor.onKeyDown((e) => {
-      if (e.code === "Tab") {
-        e.preventDefault();
-
-        const model = editor.getModel();
-        const selection = editor.getSelection();
-        if (!model || !selection) return;
-
-        editor.executeEdits("insert-two-spaces", [
-          {
-            range: selection,
-            text: "  ",
-            forceMoveMarkers: true,
-          },
-        ]);
-      }
-    });
+  const handleChange: OnChange = (val) => {
+    if (val !== undefined && onChange) onChange(val);
   };
 
   return (
     <Editor
-      height="100vh"
+      height="100%"
       defaultLanguage={language}
       value={value}
       onChange={handleChange}
-      onMount={handleMount}
+      onMount={(editor) => {
+        if (onMount) onMount(editor);
+      }}
       theme={theme}
       options={{
         readOnly,

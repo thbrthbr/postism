@@ -11,7 +11,8 @@ import { useSession } from "next-auth/react";
 import { useToast } from "@/hooks/use-toast";
 import Swal from "sweetalert2";
 import Menu from "@/components/menu";
-import Editor, { useMonaco } from "@monaco-editor/react";
+import CodeEditor from "@/components/CodeEditor";
+import { useMonaco } from "@monaco-editor/react";
 
 declare global {
   interface Window {
@@ -28,7 +29,7 @@ export default function Text() {
   const param = useParams();
   const monaco = useMonaco();
   const editorRef = useRef<any>(null);
-  const isMounted = useRef(false);
+  const isMounted = useRef<boolean>(false);
 
   const [path, setPath] = useState("");
   const [checkUser, setCheckUser] = useState<string>("");
@@ -43,11 +44,10 @@ export default function Text() {
   );
   const [location, setLocation] = useState({ x: -1, y: -1 });
 
-  // ✅ CSS 변수 읽기
+  // ===== CSS 변수 읽기 & 색상 정규화 =====
   const getColorVar = (name: string) =>
     getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
-  // ✅ 색상 포맷 정리 (#fff → #ffffff)
   const normalizeColor = (color: string) => {
     if (!color) return "#000000";
     const hex = color.replace("#", "").trim();
@@ -63,7 +63,7 @@ export default function Text() {
     return color;
   };
 
-  // ✅ Monaco 테마 정의
+  // ===== Monaco 테마 정의 (light/dark/wood/pink 전부) =====
   const defineMonacoThemes = useCallback(() => {
     if (!monaco) return;
 
@@ -87,7 +87,7 @@ export default function Text() {
         colors: {
           "editor.background": bg,
           "editor.foreground": fg,
-          "editorLineNumber.foreground": fg + "55", // 좌측 줄번호는 보이게
+          "editorLineNumber.foreground": fg + "55",
           "editorLineNumber.activeForeground": fg,
           "editor.lineHighlightBackground": fg + "15",
           "editor.selectionBackground": fg + "33",
@@ -96,10 +96,11 @@ export default function Text() {
       });
     }
 
+    // 원래 테마 복귀
     document.documentElement.dataset.theme = window.__theme || "light";
   }, [monaco]);
 
-  // ✅ 테마 동기화
+  // ===== 테마 동기화 =====
   useEffect(() => {
     if (!monaco || typeof window === "undefined") return;
     defineMonacoThemes();
@@ -110,22 +111,24 @@ export default function Text() {
     };
   }, [monaco, defineMonacoThemes]);
 
-  // ✅ 파일 불러오기
+  // ===== 파일 불러오기 (원래 로직 그대로) =====
   const getContent = async () => {
     if (!param) return;
-    const result = await fetch(`/api/text/${param.id}`, { cache: "no-store" });
+    const result = await fetch(`/api/text/${param.id}`, {
+      method: "GET",
+      cache: "no-store",
+    });
     const final = await result.json();
-
     if (final.data.length > 0) {
       const file = final.data[0];
-      const res = await fetch(file.path);
-      const text = await res.text();
+      const response = await fetch(file.path);
+      const textContent = await response.text();
       setParentId(file.parentId || "0");
-      setOriginal(text);
+      setOriginal(textContent);
       setPath(file.title);
       setCheckUser(file.user);
       setTxtTitle(file.realTitle);
-      setValue(text);
+      setValue(textContent); // textarea.value 대신 상태로 관리
       setLoading(false);
     } else {
       toast({
@@ -137,38 +140,43 @@ export default function Text() {
     }
   };
 
-  // ✅ 저장
+  // ===== 저장 (원래 editTXT 로직, textarea → value 사용) =====
   const editTXT = useCallback(async () => {
-    if (!editorRef.current) return;
-    if (isMe) {
-      const content = editorRef.current.getValue();
-      const fileRef = ref(storage, `texts/${path}.txt`);
-      await uploadString(fileRef, content, "raw", {
-        contentType: "text/plain;charset=utf-8",
-      });
-      toast({ title: "알림", description: "저장되었습니다" });
-      setOriginal(content);
-    } else {
+    if (!isMe) {
       toast({
         title: "알림",
         description: "수정권한이 없습니다",
       });
+      return;
     }
-  }, [path, isMe]);
+    const content = editorRef.current ? editorRef.current.getValue() : value; // 혹시 모를 경우 대비
 
-  // ✅ Ctrl+S 저장
+    const fileRef = ref(storage, `texts/${path}.txt`);
+    await uploadString(fileRef, content, "raw", {
+      contentType: "text/plain;charset=utf-8",
+    });
+    toast({
+      title: "알림",
+      description: "저장되었습니다",
+    });
+    setOriginal(content);
+  }, [isMe, path, value, toast]);
+
+  // ===== Ctrl+S 단축키 (원래 handleSaveShortcut) =====
   useEffect(() => {
-    const fn = (e: KeyboardEvent) => {
-      if (e.ctrlKey && (e.key === "s" || e.key === "S")) {
-        e.preventDefault();
+    const fn = (event: KeyboardEvent) => {
+      if (event.ctrlKey && (event.key === "s" || event.key === "S")) {
+        event.preventDefault();
         editTXT();
       }
     };
     document.addEventListener("keydown", fn);
-    return () => document.removeEventListener("keydown", fn);
+    return () => {
+      document.removeEventListener("keydown", fn);
+    };
   }, [editTXT]);
 
-  // ✅ mount 시 최초 데이터 로드
+  // ===== mount 시 최초 1회 콘텐츠 로드 =====
   useEffect(() => {
     if (!isMounted.current) {
       getContent();
@@ -176,21 +184,25 @@ export default function Text() {
     }
   }, []);
 
-  // ✅ 권한 체크
+  // ===== 권한 체크 (원래 checkUser === session.email 로직) =====
   useEffect(() => {
-    if (checkUser === session?.user?.email) setIsMe(true);
+    if (checkUser === session?.user?.email) {
+      setIsMe(true);
+    }
   }, [checkUser, session?.user?.email]);
 
-  // ✅ 뒤로가기
+  // ===== 뒤로가기 (원래 handleBack 로직, textarea → editorRef/value) =====
   const handleBack = () => {
-    if (!editorRef.current) return;
-    const current = editorRef.current.getValue();
+    const current = editorRef.current ? editorRef.current.getValue() : value;
+
     if (current !== original) {
       Swal.fire({
         title: "내용이 변경되었습니다",
         html: "<div>변경사항을 저장하지 않고</div> <div>페이지를 이탈하시겠습니까?</div>",
         icon: "warning",
-        customClass: { title: "text-xl" },
+        customClass: {
+          title: "text-xl",
+        },
         showCancelButton: true,
         confirmButtonText: "확인",
         cancelButtonText: "취소",
@@ -206,19 +218,38 @@ export default function Text() {
     }
   };
 
+  // ===== Editor mount 시 인스턴스 ref에 연결 =====
+  const handleEditorMount = (editor: any) => {
+    editorRef.current = editor;
+  };
+
+  // ===== Editor 내용 변경시 value 업데이트 =====
+  const handleChange = (val: string) => {
+    setValue(val);
+  };
+
   return (
     <div
       className="relative flex h-screen w-full flex-col"
       onContextMenu={(e) => {
         e.preventDefault();
-        setLocation({ x: e.pageX, y: e.pageY });
+        setLocation({
+          x: e.pageX,
+          y: e.pageY,
+        });
       }}
-      onClick={() => setLocation({ x: -1, y: -1 })}
+      onClick={(e) => {
+        e.preventDefault();
+        setLocation({
+          x: -1,
+          y: -1,
+        });
+      }}
     >
-      {/* ✅ 우클릭 메뉴 */}
+      {/* 우클릭 메뉴 (원래 그대로) */}
       {location.x !== -1 && <Menu location={location} type="inFile" />}
 
-      {/* ✅ 로딩 오버레이 */}
+      {/* 로딩 오버레이 (원래 그대로) */}
       {loading && (
         <div
           style={{ backgroundColor: "var(--color-bg-primary)" }}
@@ -228,7 +259,7 @@ export default function Text() {
         </div>
       )}
 
-      {/* ✅ 상단 메뉴바 */}
+      {/* 상단 메뉴바 – 원래 버튼들 전부 유지 */}
       <div className="flex w-full items-center justify-center gap-16 px-1 py-3">
         {isMe && (
           <>
@@ -242,13 +273,17 @@ export default function Text() {
         )}
         <button
           onClick={() => {
-            const blob = new Blob([value], { type: "text/plain" });
+            const blob = new Blob([value], {
+              type: "text/plain",
+            });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.download = `${txtTitle}.txt`;
             a.href = url;
             a.click();
-            setTimeout(() => window.URL.revokeObjectURL(url), 100);
+            setTimeout(() => {
+              window.URL.revokeObjectURL(url);
+            }, 100);
           }}
         >
           <LuDownload className="font-bold" />
@@ -265,30 +300,20 @@ export default function Text() {
         </button>
       </div>
 
-      {/* ✅ Monaco Editor (기능만 교체) */}
-      <div className="relative m-4 flex-1 overflow-hidden rounded-md">
-        <Editor
-          height="100%"
-          defaultLanguage="plaintext"
+      {/* textarea → CodeEditor로 교체 (기능만 바뀜) */}
+      <div
+        className="relative m-4 flex-1 overflow-hidden rounded-md"
+        style={{
+          transition: "background-color 0.7s ease",
+          backgroundColor: "var(--color-bg-primary)",
+        }}
+      >
+        <CodeEditor
           value={value}
-          onChange={(v) => setValue(v ?? "")}
-          onMount={(editor) => (editorRef.current = editor)}
+          onChange={handleChange}
+          readOnly={!isMe}
           theme={theme}
-          options={{
-            readOnly: !isMe,
-            fontFamily: "JetBrains Mono, Consolas, monospace",
-            fontSize: 14,
-            lineNumbers: "on",
-            minimap: { enabled: false },
-            scrollBeyondLastLine: false,
-            automaticLayout: true,
-            tabSize: 2,
-            wordWrap: "off",
-            smoothScrolling: true,
-            cursorBlinking: "smooth",
-            renderWhitespace: "none",
-            renderLineHighlight: "line",
-          }}
+          onMount={handleEditorMount}
         />
       </div>
     </div>
