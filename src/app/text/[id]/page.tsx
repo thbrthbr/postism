@@ -11,7 +11,6 @@ import { useSession } from "next-auth/react";
 import { useToast } from "@/hooks/use-toast";
 import Swal from "sweetalert2";
 import Menu from "@/components/menu";
-import locationControl from "@/components/locationControl";
 
 export default function Text() {
   const { toast } = useToast();
@@ -258,20 +257,30 @@ export default function Text() {
           <FaArrowDown />
         </button>
       </div>
-      <textarea
+      <div
+        className="relative m-4 flex h-screen flex-col"
         style={{
           transition: "background-color 0.7s ease",
+          backgroundColor: "var(--color-bg-primary)",
         }}
-        readOnly={true}
-        ref={contentRef}
-        spellCheck={false}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
-        onKeyDown={handleTabKey}
-        className="scrollbar relative m-4 h-screen resize-none overflow-y-scroll outline-none"
-      ></textarea>
+      >
+        <textarea
+          ref={contentRef}
+          readOnly
+          spellCheck={false}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onKeyDown={handleTabKey}
+          className="scrollbar flex-1 resize-none overflow-auto bg-transparent outline-none"
+          style={{
+            willChange: "transform",
+            contain: "layout paint",
+            backfaceVisibility: "hidden",
+          }}
+        ></textarea>
+      </div>
     </div>
   );
 }
