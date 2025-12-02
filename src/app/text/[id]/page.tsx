@@ -240,19 +240,31 @@ export default function Text() {
         {isMe && (
           <>
             <button
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={handleBack}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleBack();
+              }}
             >
               <FaArrowLeft />
             </button>
-            <button onMouseDown={(e) => e.preventDefault()} onClick={editTXT}>
+
+            <button
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                editTXT();
+              }}
+            >
               <FaRegSave />
             </button>
           </>
         )}
+
         <button
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => {
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
             const blob = new Blob([value], { type: "text/plain" });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement("a");
@@ -264,9 +276,11 @@ export default function Text() {
         >
           <LuDownload />
         </button>
+
         <button
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => {
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
             const editor = editorRef.current;
             if (!editor) return;
             const model = editor.getModel();
