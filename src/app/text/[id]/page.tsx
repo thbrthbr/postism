@@ -306,17 +306,6 @@ export default function Text() {
         style={{
           transition: "background-color 0.7s ease",
           backgroundColor: "var(--color-bg-primary)",
-          WebkitUserSelect: "text", // ✅ iOS에서 텍스트 드래그 허용
-          userSelect: "text", // ✅ 안드로이드에서도 허용
-          touchAction: "manipulation", // ✅ 터치 제스처 허용
-        }}
-        onContextMenu={(e) => {
-          // ✅ 모바일에서만 기본 메뉴 허용
-          if (/Mobi|Android/i.test(navigator.userAgent)) {
-            e.stopPropagation(); // Monaco로 전달 차단
-            return; // 기본 메뉴 허용
-          }
-          e.preventDefault(); // PC에서는 여전히 차단
         }}
       >
         <CodeEditor
@@ -327,6 +316,19 @@ export default function Text() {
           onMount={handleEditorMount}
         />
       </div>
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          WebkitUserSelect: "text",
+          userSelect: "text",
+          touchAction: "manipulation",
+          background: "transparent",
+          pointerEvents: /Mobi|Android/i.test(navigator.userAgent)
+            ? "auto"
+            : "none", // 모바일일 때만 활성화
+        }}
+      ></div>
     </div>
   );
 }
