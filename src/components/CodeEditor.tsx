@@ -1,10 +1,10 @@
 "use client";
 
-import { FC } from "react";
+import { FC, memo, useRef } from "react";
 import Editor, { OnChange } from "@monaco-editor/react";
 
 interface CodeEditorProps {
-  value?: string; // ✅ optional로 변경 (초기값만 받음)
+  value?: string; // 초기 1회만 사용
   language?: string;
   onChange?: (value: string) => void;
   readOnly?: boolean;
@@ -12,7 +12,7 @@ interface CodeEditorProps {
   onMount?: (editor: any) => void;
 }
 
-const CodeEditor: FC<CodeEditorProps> = ({
+const CodeEditorBase: FC<CodeEditorProps> = ({
   value,
   language = "plaintext",
   onChange,
@@ -20,21 +20,26 @@ const CodeEditor: FC<CodeEditorProps> = ({
   theme = "vs-dark",
   onMount,
 }) => {
+  const initialized = useRef(false); // ✅ 최초 1회만 setValue 방지용
+
   const handleChange: OnChange = (val) => {
     if (val !== undefined && onChange) onChange(val);
   };
 
   const handleMount = (editor: any) => {
     if (onMount) onMount(editor);
-    // ✅ 최초 1회만 수동으로 값 세팅
-    if (value) editor.setValue(value);
+
+    // ✅ 최초 1회만 수동 세팅 (커서 리셋 방지)
+    if (!initialized.current && value) {
+      editor.setValue(value);
+      initialized.current = true;
+    }
   };
 
   return (
     <Editor
       height="100%"
       defaultLanguage={language}
-      // ❌ 여기서 value를 넘기지 말 것
       onChange={handleChange}
       onMount={handleMount}
       theme={theme}
@@ -82,4 +87,6 @@ const CodeEditor: FC<CodeEditorProps> = ({
   );
 };
 
+// ✅ React.memo로 감싸서 불필요한 리렌더 방지
+const CodeEditor = memo(CodeEditorBase, () => true);
 export default CodeEditor;
