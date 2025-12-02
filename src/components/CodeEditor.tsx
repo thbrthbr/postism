@@ -1,7 +1,7 @@
 "use client";
 
-import { FC, useRef } from "react";
-import Editor, { OnChange } from "@monaco-editor/react";
+import { FC, useEffect, useRef } from "react";
+import Editor, { OnChange, useMonaco } from "@monaco-editor/react";
 
 interface CodeEditorProps {
   value?: string;
@@ -17,29 +17,49 @@ const CodeEditor: FC<CodeEditorProps> = ({
   language = "plaintext",
   onChange,
   readOnly = false,
-  theme = "vs-dark",
+  theme,
   onMount,
 }) => {
+  const monaco = useMonaco();
+  const editorRef = useRef<any>(null);
   const initialized = useRef(false);
 
   const handleChange: OnChange = (val) => {
     if (val !== undefined && onChange) onChange(val);
   };
 
-  const handleMount = (editor: any, monaco: any) => {
+  const handleMount = (editor: any, monacoInstance: any) => {
+    editorRef.current = editor;
     if (onMount) onMount(editor);
 
-    // ✅ 최초 1회만 값 설정
+    // ✅ 최초 1회 값 세팅
     if (!initialized.current && value) {
       editor.setValue(value);
       initialized.current = true;
     }
 
-    // ✅ 테마 강제 적용 (React 렌더링 안 타도 유지)
-    if (theme && monaco) {
-      monaco.editor.setTheme(theme);
-    }
+    // ✅ 현재 window.__theme 반영
+    const currentTheme = window.__theme || theme || "light";
+    monacoInstance.editor.setTheme(currentTheme);
   };
+
+  // ✅ 테마 변경 이벤트 연결 (마운트 이후 반영)
+  useEffect(() => {
+    if (!monaco) return;
+
+    const applyTheme = (t: string) => {
+      monaco.editor.setTheme(t);
+    };
+
+    // 최초 적용
+    const initialTheme = window.__theme || theme || "light";
+    applyTheme(initialTheme);
+
+    // 변경 시 반영
+    window.__onThemeChange = (t: any) => {
+      applyTheme(t);
+    };
+  }, [monaco, theme]);
 
   return (
     <Editor
@@ -47,7 +67,7 @@ const CodeEditor: FC<CodeEditorProps> = ({
       defaultLanguage={language}
       onChange={handleChange}
       onMount={handleMount}
-      theme={theme} // 여전히 props로 유지 (초기 렌더엔 반영됨)
+      theme={theme} // 초기 렌더용
       options={{
         readOnly,
         fontFamily: "Arial, Helvetica, sans-serif",
