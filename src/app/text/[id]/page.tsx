@@ -4,13 +4,15 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { ref, uploadString } from "firebase/storage";
 import { storage } from "@/firebase/firebaseConfig";
-import { FaArrowDown, FaRegSave } from "react-icons/fa";
+import { FaArrowLeft, FaArrowDown, FaRegSave } from "react-icons/fa";
 import Spinner from "@/components/spinner";
 import { LuDownload } from "react-icons/lu";
 import { useSession } from "next-auth/react";
 import { useToast } from "@/hooks/use-toast";
+import Swal from "sweetalert2";
+import Menu from "@/components/menu";
 import CodeEditor from "@/components/CodeEditor";
-import { useMonaco } from "@monaco-editor/react"; // ✅ OnChange 불필요
+import { useMonaco } from "@monaco-editor/react";
 
 declare global {
   interface Window {
@@ -27,6 +29,7 @@ export default function Text() {
   const param = useParams();
   const monaco = useMonaco();
   const editorRef = useRef<any>(null);
+  const isMounted = useRef(false);
 
   const [path, setPath] = useState("");
   const [checkUser, setCheckUser] = useState<string>("");
@@ -39,12 +42,29 @@ export default function Text() {
   const [theme, setTheme] = useState<"light" | "dark" | "wood" | "pink">(
     "light",
   );
+  const [location, setLocation] = useState({ x: -1, y: -1 });
 
-  // 🔹 현재 CSS 변수값 읽기
+  // ✅ CSS 변수 읽기
   const getColorVar = (name: string) =>
     getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
-  // 🔹 Monaco 테마 정의
+  // ✅ HEX → ARGB 변환 (Monaco가 #fff 같은 짧은 HEX 거부함)
+  const fixColor = (color: string) => {
+    if (!color) return "#ff000000";
+    const hex = color.replace("#", "");
+    if (hex.length === 3)
+      return (
+        "#ff" +
+        hex
+          .split("")
+          .map((c) => c + c)
+          .join("")
+      );
+    if (hex.length === 6) return "#ff" + hex;
+    return color.startsWith("#") ? color : "#ff000000";
+  };
+
+  // ✅ Monaco 테마 정의
   const defineMonacoThemes = useCallback(() => {
     if (!monaco) return;
 
@@ -79,7 +99,7 @@ export default function Text() {
     document.documentElement.dataset.theme = window.__theme || "light";
   }, [monaco]);
 
-  // 🔹 테마 동기화
+  // ✅ 테마 동기화
   useEffect(() => {
     if (!monaco || typeof window === "undefined") return;
     defineMonacoThemes();
@@ -90,7 +110,7 @@ export default function Text() {
     };
   }, [monaco, defineMonacoThemes]);
 
-  // 🔹 파일 불러오기
+  // ✅ 파일 불러오기
   const getContent = async () => {
     if (!param) return;
     const result = await fetch(`/api/text/${param.id}`, { cache: "no-store" });
@@ -118,7 +138,7 @@ export default function Text() {
     }
   };
 
-  // 🔹 저장
+  // ✅ 저장
   const editTXT = useCallback(async () => {
     if (!editorRef.current || !isMe) return;
     const content = editorRef.current.getValue();
@@ -130,26 +150,7 @@ export default function Text() {
     toast({ title: "알림", description: "저장되었습니다" });
   }, [path, isMe]);
 
-  const fixColor = (color: string) => {
-    if (!color) return "#000000";
-    // #fff → #ffffffff, #123456 → #ff123456
-    const hex = color.replace("#", "");
-    if (hex.length === 3) {
-      return (
-        "#ff" +
-        hex
-          .split("")
-          .map((c) => c + c)
-          .join("")
-      );
-    }
-    if (hex.length === 6) {
-      return "#ff" + hex;
-    }
-    return color;
-  };
-
-  // 🔹 Ctrl+S 저장 단축키
+  // ✅ Ctrl+S 저장
   useEffect(() => {
     const fn = (e: KeyboardEvent) => {
       if (e.ctrlKey && (e.key === "s" || e.key === "S")) {
@@ -161,28 +162,70 @@ export default function Text() {
     return () => document.removeEventListener("keydown", fn);
   }, [editTXT]);
 
-  // 🔹 mount
+  // ✅ mount 시 최초 데이터 로드
   useEffect(() => {
-    getContent();
+    if (!isMounted.current) {
+      getContent();
+      isMounted.current = true;
+    }
   }, []);
 
-  // 🔹 권한
+  // ✅ 권한 체크
   useEffect(() => {
     if (checkUser === session?.user?.email) setIsMe(true);
   }, [checkUser, session?.user?.email]);
 
-  // 🔹 에디터 마운트 시 ref 저장
+  // ✅ Editor mount 시 ref 연결
   const handleEditorMount = (editor: any) => {
     editorRef.current = editor;
   };
 
-  // 🔹 변경 감지
+  // ✅ 내용 변경 핸들러
   const handleChange = (val?: string) => {
     if (val !== undefined) setValue(val);
   };
 
+  // ✅ 뒤로가기
+  const handleBack = () => {
+    if (!editorRef.current) return;
+    const current = editorRef.current.getValue();
+    if (current !== original) {
+      Swal.fire({
+        title: "내용이 변경되었습니다",
+        html: "<div>변경사항을 저장하지 않고</div><div>페이지를 이탈하시겠습니까?</div>",
+        icon: "warning",
+        customClass: { title: "text-xl" },
+        showCancelButton: true,
+        confirmButtonText: "확인",
+        cancelButtonText: "취소",
+      }).then((result) => {
+        if (result.isConfirmed) {
+          if (parentId === "0") router.push("/");
+          else router.push(`/folder/${parentId}`);
+        }
+      });
+    } else {
+      if (parentId === "0") router.push("/");
+      else router.push(`/folder/${parentId}`);
+    }
+  };
+
   return (
-    <div className="relative flex h-screen w-full flex-col">
+    <div
+      className="relative flex h-screen w-full flex-col"
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setLocation({ x: e.pageX, y: e.pageY });
+      }}
+      onClick={(e) => {
+        e.preventDefault();
+        setLocation({ x: -1, y: -1 });
+      }}
+    >
+      {/* ✅ 우클릭 메뉴 */}
+      {location.x !== -1 && <Menu location={location} type="inFile" />}
+
+      {/* ✅ 로딩 오버레이 */}
       {loading && (
         <div
           style={{ backgroundColor: "var(--color-bg-primary)" }}
@@ -191,11 +234,18 @@ export default function Text() {
           <Spinner />
         </div>
       )}
-      <div className="flex justify-center gap-16 px-1 py-3">
+
+      {/* ✅ 상단 메뉴바 */}
+      <div className="flex w-full items-center justify-center gap-16 px-1 py-3">
         {isMe && (
-          <button onClick={editTXT}>
-            <FaRegSave />
-          </button>
+          <>
+            <button onClick={handleBack}>
+              <FaArrowLeft />
+            </button>
+            <button onClick={editTXT}>
+              <FaRegSave />
+            </button>
+          </>
         )}
         <button
           onClick={() => {
@@ -205,6 +255,7 @@ export default function Text() {
             a.href = url;
             a.download = `${txtTitle}.txt`;
             a.click();
+            window.URL.revokeObjectURL(url);
           }}
         >
           <LuDownload />
@@ -221,13 +272,21 @@ export default function Text() {
         </button>
       </div>
 
-      {/* ✅ 코드 에디터 */}
-      <CodeEditor
-        value={value}
-        onChange={handleChange}
-        readOnly={!isMe}
-        theme={theme}
-      />
+      {/* ✅ Monaco Code Editor */}
+      <div
+        className="relative m-4 flex-1 overflow-hidden rounded-md"
+        style={{
+          transition: "background-color 0.7s ease",
+          backgroundColor: "var(--color-bg-primary)",
+        }}
+      >
+        <CodeEditor
+          value={value}
+          onChange={handleChange}
+          readOnly={!isMe}
+          theme={theme}
+        />
+      </div>
     </div>
   );
 }
