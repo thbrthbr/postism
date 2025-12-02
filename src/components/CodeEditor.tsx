@@ -62,7 +62,8 @@ const CodeEditor: FC<CodeEditorProps> = ({
           vertical: "visible", // ✅ 스크롤 thumb만 표시
         },
 
-        // ✅ 시각적 효과 최소화
+        scrollBeyondLastColumn: 0, // ✅ 우측 스크롤 여백 완전히 제거
+        padding: { top: 8, bottom: 8 }, // ✅ 편집 영역 위아래 약간 여백만 남기기
         overviewRulerLanes: 0, // 우측 얇은 색 표시줄 제거
         overviewRulerBorder: false, // 우측 테두리 제거
         renderLineHighlight: "none", // ← 클릭된 줄 강조 비활성화
