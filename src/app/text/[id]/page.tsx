@@ -66,11 +66,11 @@ export default function Text() {
         inherit: true,
         rules: [],
         colors: {
-          "editor.background": bg,
-          "editor.foreground": fg,
-          "editor.lineHighlightBackground": `${fg}20`,
-          "editor.selectionBackground": `${fg}33`,
-          "editorCursor.foreground": fg,
+          "editor.background": fixColor(bg),
+          "editor.foreground": fixColor(fg),
+          "editor.lineHighlightBackground": fixColor(fg) + "20",
+          "editor.selectionBackground": fixColor(fg) + "33",
+          "editorCursor.foreground": fixColor(fg),
         },
       });
     }
@@ -129,6 +129,25 @@ export default function Text() {
     setOriginal(content);
     toast({ title: "알림", description: "저장되었습니다" });
   }, [path, isMe]);
+
+  const fixColor = (color: string) => {
+    if (!color) return "#000000";
+    // #fff → #ffffffff, #123456 → #ff123456
+    const hex = color.replace("#", "");
+    if (hex.length === 3) {
+      return (
+        "#ff" +
+        hex
+          .split("")
+          .map((c) => c + c)
+          .join("")
+      );
+    }
+    if (hex.length === 6) {
+      return "#ff" + hex;
+    }
+    return color;
+  };
 
   // 🔹 Ctrl+S 저장 단축키
   useEffect(() => {
