@@ -26,13 +26,15 @@ const CodeEditorBase: FC<CodeEditorProps> = ({
     if (val !== undefined && onChange) onChange(val);
   };
 
-  const handleMount = (editor: any) => {
+  const handleMount = (editor: any, monaco: any) => {
     if (onMount) onMount(editor);
 
-    // ✅ 최초 1회만 수동 세팅 (커서 리셋 방지)
-    if (!initialized.current && value) {
-      editor.setValue(value);
-      initialized.current = true;
+    // ✅ 최초 값 세팅
+    if (value) editor.setValue(value);
+
+    // ✅ 테마 강제 적용
+    if (theme && monaco) {
+      monaco.editor.setTheme(theme);
     }
   };
 
