@@ -36,7 +36,7 @@ const CodeEditor: FC<CodeEditorProps> = ({
       theme={theme}
       options={{
         readOnly,
-        // fontFamily: "JetBrains Mono, Consolas, monospace",
+        fontFamily: "Arial, Helvetica, sans-serif",
         fontSize: 14,
         automaticLayout: true,
         lineNumbers: "off",
