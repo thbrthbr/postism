@@ -81,7 +81,7 @@ const CodeEditor: FC<CodeEditorProps> = ({
         smoothScrolling: true,
         scrollBeyondLastLine: false,
         tabSize: 2,
-        wordWrap: "on",
+        wordWrap: "bounded",
         wordWrapColumn: 0,
         wrappingIndent: "none",
         cursorBlinking: "smooth",
