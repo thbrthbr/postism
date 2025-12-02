@@ -48,9 +48,12 @@ const CodeEditor: FC<CodeEditorProps> = ({
         scrollBeyondLastLine: false,
         tabSize: 2,
         wordWrap: "on",
+        wordWrapColumn: 0, // ✅ wrap 위치를 에디터 끝으로 밀기
+        wrappingIndent: "none", // ✅ 들여쓰기 없이 바로 이어지게
         cursorBlinking: "smooth",
         renderWhitespace: "none",
         quickSuggestions: false,
+        contextmenu: false,
         fixedOverflowWidgets: true,
         scrollbar: {
           verticalHasArrows: false,

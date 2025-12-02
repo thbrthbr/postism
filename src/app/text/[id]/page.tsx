@@ -306,6 +306,8 @@ export default function Text() {
         style={{
           transition: "background-color 0.7s ease",
           backgroundColor: "var(--color-bg-primary)",
+          WebkitUserSelect: "text", // ✅ iOS에서 텍스트 드래그 허용
+          userSelect: "text", // ✅ 안드로이드에서도 허용
         }}
       >
         <CodeEditor
