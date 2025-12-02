@@ -66,6 +66,7 @@ const CodeEditor: FC<CodeEditorProps> = ({
         },
 
         scrollBeyondLastColumn: 0, // ✅ 우측 스크롤 여백 완전히 제거
+        lineDecorationsWidth: 0, // ✅ 좌측/우측 장식 여백 완전 제거
         padding: { top: 8, bottom: 8 }, // ✅ 편집 영역 위아래 약간 여백만 남기기
         overviewRulerLanes: 0, // 우측 얇은 색 표시줄 제거
         overviewRulerBorder: false, // 우측 테두리 제거
