@@ -40,6 +40,9 @@ const CodeEditor: FC<CodeEditorProps> = ({
         fontSize: 16,
         automaticLayout: true,
         lineNumbers: "off",
+        lineNumbersMinChars: 0, // ✅ 여백 최소화
+        glyphMargin: false, // ✅ breakpoint 아이콘 영역 제거
+        folding: false, // ✅ 코드 접기 영역 제거
         minimap: { enabled: false },
         smoothScrolling: true,
         scrollBeyondLastLine: false,
