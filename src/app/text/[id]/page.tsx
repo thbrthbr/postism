@@ -90,7 +90,7 @@ export default function Text() {
           "editorLineNumber.foreground": fg + "55",
           "editorLineNumber.activeForeground": fg,
           "editor.lineHighlightBackground": fg + "15",
-          "editor.selectionBackground": fg + "33",
+          "editor.selectionBackground": fg + "55",
           "editorCursor.foreground": fg,
         },
       });
