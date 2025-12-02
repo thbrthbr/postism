@@ -1,10 +1,10 @@
 "use client";
 
-import { FC, memo, useRef } from "react";
+import { FC, useRef } from "react";
 import Editor, { OnChange } from "@monaco-editor/react";
 
 interface CodeEditorProps {
-  value?: string; // 초기 1회만 사용
+  value?: string;
   language?: string;
   onChange?: (value: string) => void;
   readOnly?: boolean;
@@ -12,7 +12,7 @@ interface CodeEditorProps {
   onMount?: (editor: any) => void;
 }
 
-const CodeEditorBase: FC<CodeEditorProps> = ({
+const CodeEditor: FC<CodeEditorProps> = ({
   value,
   language = "plaintext",
   onChange,
@@ -20,7 +20,7 @@ const CodeEditorBase: FC<CodeEditorProps> = ({
   theme = "vs-dark",
   onMount,
 }) => {
-  const initialized = useRef(false); // ✅ 최초 1회만 setValue 방지용
+  const initialized = useRef(false);
 
   const handleChange: OnChange = (val) => {
     if (val !== undefined && onChange) onChange(val);
@@ -29,10 +29,13 @@ const CodeEditorBase: FC<CodeEditorProps> = ({
   const handleMount = (editor: any, monaco: any) => {
     if (onMount) onMount(editor);
 
-    // ✅ 최초 값 세팅
-    if (value) editor.setValue(value);
+    // ✅ 최초 1회만 값 설정
+    if (!initialized.current && value) {
+      editor.setValue(value);
+      initialized.current = true;
+    }
 
-    // ✅ 테마 강제 적용
+    // ✅ 테마 강제 적용 (React 렌더링 안 타도 유지)
     if (theme && monaco) {
       monaco.editor.setTheme(theme);
     }
@@ -44,7 +47,7 @@ const CodeEditorBase: FC<CodeEditorProps> = ({
       defaultLanguage={language}
       onChange={handleChange}
       onMount={handleMount}
-      theme={theme}
+      theme={theme} // 여전히 props로 유지 (초기 렌더엔 반영됨)
       options={{
         readOnly,
         fontFamily: "Arial, Helvetica, sans-serif",
@@ -89,6 +92,4 @@ const CodeEditorBase: FC<CodeEditorProps> = ({
   );
 };
 
-// ✅ React.memo로 감싸서 불필요한 리렌더 방지
-const CodeEditor = memo(CodeEditorBase, () => true);
 export default CodeEditor;
