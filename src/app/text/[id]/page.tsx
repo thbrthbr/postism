@@ -25,13 +25,8 @@ export default function Text() {
   const [loading, setLoading] = useState(true);
   const [original, setOriginal] = useState("");
   const [txtTitle, setTxtTitle] = useState("");
-  const [isMe, setIsMe] = useState(false); // 이 정도로 수정 가능하게 되어 있는데 이거 추후에 수정해야함
-  const [location, setLocation] = useState({
-    x: -1,
-    y: -1,
-  });
-
-  // locationControl(contentRef, original);
+  const [isMe, setIsMe] = useState(false);
+  const [location, setLocation] = useState({ x: -1, y: -1 });
 
   const getContent = async () => {
     if (param) {
@@ -59,7 +54,6 @@ export default function Text() {
           title: "알림",
           description: "해당 문서는 존재하지 않습니다",
         });
-        // alert("해당 문서는 존재하지 않습니다");
         router.push("/");
       }
     }
@@ -67,67 +61,42 @@ export default function Text() {
 
   const downloadTXT = (e: any) => {
     Swal.fire({
-      // title: '알림',
       title: "다운로드",
       text: "텍스트 파일을 다운로드 하시겠습니까?",
-      // icon: 'warning',
       showCancelButton: true,
       confirmButtonText: "확인",
       cancelButtonText: "취소",
     }).then((result) => {
-      if (result.isConfirmed) {
-        if (contentRef.current) {
-          const blob = new Blob([contentRef.current.value], {
-            type: "text/plain",
-          });
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.download = `${txtTitle}.txt`;
-          a.href = url;
-          a.click();
-          setTimeout(() => {
-            window.URL.revokeObjectURL(url);
-          }, 100);
-        }
+      if (result.isConfirmed && contentRef.current) {
+        const blob = new Blob([contentRef.current.value], {
+          type: "text/plain",
+        });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.download = `${txtTitle}.txt`;
+        a.href = url;
+        a.click();
+        setTimeout(() => window.URL.revokeObjectURL(url), 100);
       }
     });
   };
 
   const editTXT = useCallback(async () => {
-    if (contentRef.current) {
-      if (isMe) {
-        // 여기서 다이렉트로 수정하는 건 별로임
-        // 나중에 api를 하나 새로 만들고 api 요청할 때 jwt? 토큰? 을 검사해서 유효한 경우에만 아래 uploadString 요청을 보내야함
-
-        // const result = await fetch(`${process.env.NEXT_PUBLIC_SITE}/api/text/edit-content`, {
-        //   method: "POST",
-        //   body: JSON.stringify({
-        //     id,
-        //     newTitle,
-        //   }),
-        //   cache: "no-store",
-        // });
-        // const final = await result.json();
-
-        // console.log(session);
-        // console.log(checkUser);
-        const fileRef = ref(storage, `texts/${path}.txt`);
-        await uploadString(fileRef, contentRef.current.value, "raw", {
-          contentType: "text/plain;charset=utf-8",
-        });
-        // alert("저장되었습니다");
-        toast({
-          title: "알림",
-          description: "저장되었습니다",
-        });
-        setOriginal(contentRef.current.value);
-      } else {
-        toast({
-          title: "알림",
-          description: "수정권한이 없습니다",
-        });
-        // alert("수정권한이 없습니다");
-      }
+    if (contentRef.current && isMe) {
+      const fileRef = ref(storage, `texts/${path}.txt`);
+      await uploadString(fileRef, contentRef.current.value, "raw", {
+        contentType: "text/plain;charset=utf-8",
+      });
+      toast({
+        title: "알림",
+        description: "저장되었습니다",
+      });
+      setOriginal(contentRef.current.value);
+    } else if (!isMe) {
+      toast({
+        title: "알림",
+        description: "수정권한이 없습니다",
+      });
     }
   }, [path, isMe]);
 
@@ -148,7 +117,6 @@ export default function Text() {
       const start = target.selectionStart;
       const tabSpace = "  ";
       target.focus();
-      // execCommand 써야 tab한 것에 대한 컨트롤 z가 제대로 작동함 -> 바꿀 수 있으면 나중에 바꿔보자
       document.execCommand("insertText", false, `${tabSpace}`);
       setTimeout(() => {
         target.selectionStart = target.selectionEnd = start + tabSpace.length;
@@ -157,31 +125,53 @@ export default function Text() {
   };
 
   const handleBack = () => {
-    if (contentRef.current) {
-      if (contentRef.current.value !== original) {
-        Swal.fire({
-          title: "내용이 변경되었습니다",
-          // text: "변경사항을 저장하지 않고 페이지를 이탈하시겠습니까?",
-          html: "<div>변경사항을 저장하지 않고</div> <div>페이지를 이탈하시겠습니까?</div>",
-          icon: "warning",
-          customClass: {
-            title: "text-xl",
-          },
-          showCancelButton: true,
-          confirmButtonText: "확인",
-          cancelButtonText: "취소",
-        }).then((result) => {
-          if (result.isConfirmed) {
-            if (parentId === "0") router.push("/");
-            else router.push(`/folder/${parentId}`);
-          }
-        });
-      } else {
-        if (parentId === "0") router.push("/");
-        else router.push(`/folder/${parentId}`);
-      }
+    if (!contentRef.current) return;
+    if (contentRef.current.value !== original) {
+      Swal.fire({
+        title: "내용이 변경되었습니다",
+        html: "<div>변경사항을 저장하지 않고</div><div>페이지를 이탈하시겠습니까?</div>",
+        icon: "warning",
+        customClass: { title: "text-xl" },
+        showCancelButton: true,
+        confirmButtonText: "확인",
+        cancelButtonText: "취소",
+      }).then((result) => {
+        if (result.isConfirmed) {
+          if (parentId === "0") router.push("/");
+          else router.push(`/folder/${parentId}`);
+        }
+      });
+    } else {
+      if (parentId === "0") router.push("/");
+      else router.push(`/folder/${parentId}`);
     }
   };
+
+  // 🔹 한글 입력 렉 방지용 composition 이벤트 추가
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+
+    const handleCompositionStart = () => {
+      // 한글 조합 시작 시 브라우저 reflow 최소화
+      el.style.willChange = "none";
+      el.style.contain = "paint";
+    };
+
+    const handleCompositionEnd = () => {
+      // 한글 조합 끝나면 원상 복귀
+      el.style.willChange = "transform";
+      el.style.contain = "layout paint";
+    };
+
+    el.addEventListener("compositionstart", handleCompositionStart);
+    el.addEventListener("compositionend", handleCompositionEnd);
+
+    return () => {
+      el.removeEventListener("compositionstart", handleCompositionStart);
+      el.removeEventListener("compositionend", handleCompositionEnd);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isMounted.current) {
@@ -191,19 +181,15 @@ export default function Text() {
   }, []);
 
   useEffect(() => {
-    if (contentRef.current) {
-      if (checkUser === session?.user?.email) {
-        setIsMe(true);
-        contentRef.current.readOnly = false;
-      }
+    if (contentRef.current && checkUser === session?.user?.email) {
+      setIsMe(true);
+      contentRef.current.readOnly = false;
     }
   }, [checkUser]);
 
   useEffect(() => {
     document.addEventListener("keydown", handleSaveShortcut);
-    return () => {
-      document.removeEventListener("keydown", handleSaveShortcut);
-    };
+    return () => document.removeEventListener("keydown", handleSaveShortcut);
   }, [handleSaveShortcut]);
 
   return (
@@ -211,18 +197,9 @@ export default function Text() {
       className="relative flex h-screen w-full flex-col"
       onContextMenu={(e) => {
         e.preventDefault();
-        setLocation({
-          x: e.pageX,
-          y: e.pageY,
-        });
+        setLocation({ x: e.pageX, y: e.pageY });
       }}
-      onClick={(e) => {
-        e.preventDefault();
-        setLocation({
-          x: -1,
-          y: -1,
-        });
-      }}
+      onClick={() => setLocation({ x: -1, y: -1 })}
     >
       {location.x !== -1 && <Menu location={location} type="inFile" />}
       {loading && (
@@ -257,6 +234,7 @@ export default function Text() {
           <FaArrowDown />
         </button>
       </div>
+
       <div
         className="relative m-4 flex h-screen flex-col"
         style={{
