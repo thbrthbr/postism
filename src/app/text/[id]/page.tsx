@@ -146,6 +146,16 @@ export default function Text() {
     }
   };
 
+  useEffect(() => {
+    if (!loading && originalRef.current) {
+      if (isMobile && textAreaRef.current) {
+        textAreaRef.current.value = originalRef.current;
+      } else if (!isMobile && editorRef.current) {
+        editorRef.current.setValue(originalRef.current);
+      }
+    }
+  }, [isMobile, loading]);
+
   // ✅ 현재 내용 가져오기
   const getCurrentContent = () => {
     if (isMobile) return textAreaRef.current?.value || "";
