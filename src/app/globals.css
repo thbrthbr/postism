@@ -100,7 +100,22 @@ textarea {
 
 .monaco-editor .overflow-guard {
   padding-right: 0 !important;
-  padding-left: 0 !important;
+}
+
+.monaco-editor .margin {
+  width: 0 !important;
+}
+
+.monaco-editor .minimap {
+  display: none !important;
+}
+
+.monaco-editor .scroll-decoration {
+  display: none !important;
+}
+
+.monaco-editor .decorationsOverviewRuler {
+  display: none !important;
 }
 
 @font-face {
