@@ -7,7 +7,7 @@ import React, {
   KeyboardEvent,
 } from "react";
 
-// ✅ 외부에서 접근 가능한 인터페이스
+// ✅ 외부로 노출할 ref 타입
 export interface FastTextareaRef {
   value: string;
   scrollHeight: number;
@@ -23,12 +23,10 @@ const FastTextarea = forwardRef<FastTextareaRef, Props>(
     const editableRef = useRef<HTMLDivElement>(null);
     const [text, setText] = useState(initialValue);
 
-    // 초기 텍스트 적용
     useEffect(() => {
       if (editableRef.current) editableRef.current.innerText = initialValue;
     }, [initialValue]);
 
-    // 외부로 노출
     useImperativeHandle(
       ref,
       (): FastTextareaRef => ({
@@ -52,14 +50,13 @@ const FastTextarea = forwardRef<FastTextareaRef, Props>(
       }),
     );
 
-    // ✅ Tab 키 입력 지원
     const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
       if (e.key === "Tab") {
         e.preventDefault();
         const sel = window.getSelection();
         if (!sel || !sel.rangeCount) return;
         const range = sel.getRangeAt(0);
-        const tabNode = document.createTextNode("  "); // 두 칸 스페이스
+        const tabNode = document.createTextNode("  ");
         range.insertNode(tabNode);
         range.setStartAfter(tabNode);
         range.setEndAfter(tabNode);
@@ -69,14 +66,13 @@ const FastTextarea = forwardRef<FastTextareaRef, Props>(
       }
     };
 
-    // 입력 이벤트
     const handleInput = () => {
       if (editableRef.current) setText(editableRef.current.innerText);
     };
 
     return (
       <div
-        className="relative m-4 flex h-screen flex-col"
+        className="relative m-4 flex flex-1"
         style={{
           transition: "background-color 0.7s ease",
           backgroundColor: "var(--color-bg-primary)",

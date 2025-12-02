@@ -11,7 +11,7 @@ import { useSession } from "next-auth/react";
 import { useToast } from "@/hooks/use-toast";
 import Swal from "sweetalert2";
 import Menu from "@/components/menu";
-import FastTextarea, { FastTextareaRef } from "@/components/FastTextArea"; // ✅ ref 타입도 함께 import
+import FastTextarea, { FastTextareaRef } from "@/components/FastTextArea";
 
 export default function Text() {
   const { toast } = useToast();
@@ -19,7 +19,6 @@ export default function Text() {
   const router = useRouter();
   const param = useParams();
 
-  // ✅ 타입 명시
   const contentRef = useRef<FastTextareaRef>(null);
   const isMounted = useRef(false);
 
@@ -32,7 +31,6 @@ export default function Text() {
   const [isMe, setIsMe] = useState(false);
   const [location, setLocation] = useState({ x: -1, y: -1 });
 
-  // 🔹 파일 내용 가져오기
   const getContent = async () => {
     if (!param) return;
     const result = await fetch(`/api/text/${param.id}`, {
@@ -51,9 +49,7 @@ export default function Text() {
       setTxtTitle(final.data[0].realTitle);
       setCheckUser(final.data[0].user);
 
-      if (contentRef.current) {
-        contentRef.current.value = textContent; // ✅ FastTextarea의 커스텀 value
-      }
+      if (contentRef.current) contentRef.current.value = textContent;
       setLoading(false);
     } else {
       toast({
@@ -65,7 +61,6 @@ export default function Text() {
     }
   };
 
-  // 🔹 파일 다운로드
   const downloadTXT = () => {
     Swal.fire({
       title: "다운로드",
@@ -88,7 +83,6 @@ export default function Text() {
     });
   };
 
-  // 🔹 저장 기능
   const editTXT = useCallback(async () => {
     if (!contentRef.current) return;
     if (isMe) {
@@ -99,14 +93,10 @@ export default function Text() {
       toast({ title: "알림", description: "저장되었습니다" });
       setOriginal(contentRef.current.value);
     } else {
-      toast({
-        title: "알림",
-        description: "수정권한이 없습니다",
-      });
+      toast({ title: "알림", description: "수정권한이 없습니다" });
     }
   }, [path, isMe]);
 
-  // 🔹 Ctrl+S 단축키 저장
   const handleSaveShortcut = useCallback(
     (event: KeyboardEvent) => {
       if (event.ctrlKey && (event.key === "s" || event.key === "S")) {
@@ -117,7 +107,6 @@ export default function Text() {
     [editTXT],
   );
 
-  // 🔹 뒤로가기 확인
   const handleBack = () => {
     if (!contentRef.current) return;
     if (contentRef.current.value !== original) {
@@ -141,7 +130,6 @@ export default function Text() {
     }
   };
 
-  // 🔹 mount 시 실행
   useEffect(() => {
     if (!isMounted.current) {
       getContent();
@@ -149,14 +137,10 @@ export default function Text() {
     }
   }, []);
 
-  // 🔹 권한 확인
   useEffect(() => {
-    if (contentRef.current && checkUser === session?.user?.email) {
-      setIsMe(true);
-    }
+    if (contentRef.current && checkUser === session?.user?.email) setIsMe(true);
   }, [checkUser]);
 
-  // 🔹 단축키 이벤트 등록
   useEffect(() => {
     document.addEventListener("keydown", handleSaveShortcut);
     return () => document.removeEventListener("keydown", handleSaveShortcut);
@@ -164,7 +148,7 @@ export default function Text() {
 
   return (
     <div
-      className="relative flex h-screen w-full flex-col"
+      className="relative flex h-screen w-full flex-col overflow-hidden"
       onContextMenu={(e) => {
         e.preventDefault();
         setLocation({ x: e.pageX, y: e.pageY });
@@ -173,7 +157,6 @@ export default function Text() {
     >
       {location.x !== -1 && <Menu location={location} type="inFile" />}
 
-      {/* 로딩 */}
       {loading && (
         <div
           style={{ backgroundColor: "var(--color-bg-primary)" }}
@@ -183,7 +166,6 @@ export default function Text() {
         </div>
       )}
 
-      {/* 상단 버튼 */}
       <div className="flex w-full items-center justify-center gap-16 px-1 py-3">
         {isMe && (
           <>
@@ -209,8 +191,8 @@ export default function Text() {
         </button>
       </div>
 
-      {/* ✅ textarea → FastTextarea 대체 */}
-      <FastTextarea ref={contentRef} initialValue={original} />
+      {/* ✅ 에디터 */}
+      <FastTextarea initialValue={original} ref={contentRef} />
     </div>
   );
 }
