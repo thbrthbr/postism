@@ -11,14 +11,18 @@ import { useSession } from "next-auth/react";
 import { useToast } from "@/hooks/use-toast";
 import Swal from "sweetalert2";
 import Menu from "@/components/menu";
+import FastTextarea, { FastTextareaRef } from "@/components/FastTextArea"; // ✅ ref 타입도 함께 import
 
 export default function Text() {
   const { toast } = useToast();
   const { data: session } = useSession();
   const router = useRouter();
   const param = useParams();
-  const contentRef = useRef<any>(null);
-  const isMounted = useRef<any>(null);
+
+  // ✅ 타입 명시
+  const contentRef = useRef<FastTextareaRef>(null);
+  const isMounted = useRef(false);
+
   const [path, setPath] = useState("");
   const [checkUser, setCheckUser] = useState<string>("");
   const [parentId, setParentId] = useState("");
@@ -28,38 +32,41 @@ export default function Text() {
   const [isMe, setIsMe] = useState(false);
   const [location, setLocation] = useState({ x: -1, y: -1 });
 
+  // 🔹 파일 내용 가져오기
   const getContent = async () => {
-    if (param) {
-      const result = await fetch(`/api/text/${param.id}`, {
-        method: "GET",
-        cache: "no-store",
-      });
-      const final = await result.json();
-      if (final.data.length > 0) {
-        const path = final.data[0].path;
-        const response = await fetch(path);
-        const textContent = await response.text();
-        setParentId(final.data[0].parentId || "0");
-        setOriginal(textContent);
-        setPath(final.data[0].title);
-        if (contentRef.current) {
-          setCheckUser(final.data[0].user);
-          contentRef.current.value = textContent;
-          setLoading(false);
-        }
-        setTxtTitle(final.data[0].realTitle);
-      } else {
-        toast({
-          variant: "destructive",
-          title: "알림",
-          description: "해당 문서는 존재하지 않습니다",
-        });
-        router.push("/");
+    if (!param) return;
+    const result = await fetch(`/api/text/${param.id}`, {
+      method: "GET",
+      cache: "no-store",
+    });
+    const final = await result.json();
+    if (final.data.length > 0) {
+      const path = final.data[0].path;
+      const response = await fetch(path);
+      const textContent = await response.text();
+
+      setParentId(final.data[0].parentId || "0");
+      setOriginal(textContent);
+      setPath(final.data[0].title);
+      setTxtTitle(final.data[0].realTitle);
+      setCheckUser(final.data[0].user);
+
+      if (contentRef.current) {
+        contentRef.current.value = textContent; // ✅ FastTextarea의 커스텀 value
       }
+      setLoading(false);
+    } else {
+      toast({
+        variant: "destructive",
+        title: "알림",
+        description: "해당 문서는 존재하지 않습니다",
+      });
+      router.push("/");
     }
   };
 
-  const downloadTXT = (e: any) => {
+  // 🔹 파일 다운로드
+  const downloadTXT = () => {
     Swal.fire({
       title: "다운로드",
       text: "텍스트 파일을 다운로드 하시겠습니까?",
@@ -81,18 +88,17 @@ export default function Text() {
     });
   };
 
+  // 🔹 저장 기능
   const editTXT = useCallback(async () => {
-    if (contentRef.current && isMe) {
+    if (!contentRef.current) return;
+    if (isMe) {
       const fileRef = ref(storage, `texts/${path}.txt`);
       await uploadString(fileRef, contentRef.current.value, "raw", {
         contentType: "text/plain;charset=utf-8",
       });
-      toast({
-        title: "알림",
-        description: "저장되었습니다",
-      });
+      toast({ title: "알림", description: "저장되었습니다" });
       setOriginal(contentRef.current.value);
-    } else if (!isMe) {
+    } else {
       toast({
         title: "알림",
         description: "수정권한이 없습니다",
@@ -100,6 +106,7 @@ export default function Text() {
     }
   }, [path, isMe]);
 
+  // 🔹 Ctrl+S 단축키 저장
   const handleSaveShortcut = useCallback(
     (event: KeyboardEvent) => {
       if (event.ctrlKey && (event.key === "s" || event.key === "S")) {
@@ -110,20 +117,7 @@ export default function Text() {
     [editTXT],
   );
 
-  const handleTabKey = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === "Tab") {
-      event.preventDefault();
-      const target = event.target as HTMLTextAreaElement;
-      const start = target.selectionStart;
-      const tabSpace = "  ";
-      target.focus();
-      document.execCommand("insertText", false, `${tabSpace}`);
-      setTimeout(() => {
-        target.selectionStart = target.selectionEnd = start + tabSpace.length;
-      }, 0);
-    }
-  };
-
+  // 🔹 뒤로가기 확인
   const handleBack = () => {
     if (!contentRef.current) return;
     if (contentRef.current.value !== original) {
@@ -147,32 +141,7 @@ export default function Text() {
     }
   };
 
-  // 🔹 한글 입력 렉 방지용 composition 이벤트 추가
-  useEffect(() => {
-    const el = contentRef.current;
-    if (!el) return;
-
-    const handleCompositionStart = () => {
-      // 한글 조합 시작 시 브라우저 reflow 최소화
-      el.style.willChange = "none";
-      el.style.contain = "paint";
-    };
-
-    const handleCompositionEnd = () => {
-      // 한글 조합 끝나면 원상 복귀
-      el.style.willChange = "transform";
-      el.style.contain = "layout paint";
-    };
-
-    el.addEventListener("compositionstart", handleCompositionStart);
-    el.addEventListener("compositionend", handleCompositionEnd);
-
-    return () => {
-      el.removeEventListener("compositionstart", handleCompositionStart);
-      el.removeEventListener("compositionend", handleCompositionEnd);
-    };
-  }, []);
-
+  // 🔹 mount 시 실행
   useEffect(() => {
     if (!isMounted.current) {
       getContent();
@@ -180,13 +149,14 @@ export default function Text() {
     }
   }, []);
 
+  // 🔹 권한 확인
   useEffect(() => {
     if (contentRef.current && checkUser === session?.user?.email) {
       setIsMe(true);
-      contentRef.current.readOnly = false;
     }
   }, [checkUser]);
 
+  // 🔹 단축키 이벤트 등록
   useEffect(() => {
     document.addEventListener("keydown", handleSaveShortcut);
     return () => document.removeEventListener("keydown", handleSaveShortcut);
@@ -202,6 +172,8 @@ export default function Text() {
       onClick={() => setLocation({ x: -1, y: -1 })}
     >
       {location.x !== -1 && <Menu location={location} type="inFile" />}
+
+      {/* 로딩 */}
       {loading && (
         <div
           style={{ backgroundColor: "var(--color-bg-primary)" }}
@@ -210,6 +182,8 @@ export default function Text() {
           <Spinner />
         </div>
       )}
+
+      {/* 상단 버튼 */}
       <div className="flex w-full items-center justify-center gap-16 px-1 py-3">
         {isMe && (
           <>
@@ -225,40 +199,18 @@ export default function Text() {
           <LuDownload className="font-bold" />
         </button>
         <button
-          onClick={() =>
-            contentRef.current?.scrollTo({
-              top: contentRef.current.scrollHeight,
-            })
-          }
+          onClick={() => {
+            const el = contentRef.current;
+            if (!el) return;
+            el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+          }}
         >
           <FaArrowDown />
         </button>
       </div>
 
-      <div
-        className="relative m-4 flex h-screen flex-col"
-        style={{
-          transition: "background-color 0.7s ease",
-          backgroundColor: "var(--color-bg-primary)",
-        }}
-      >
-        <textarea
-          ref={contentRef}
-          readOnly
-          spellCheck={false}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          onKeyDown={handleTabKey}
-          className="scrollbar flex-1 resize-none overflow-auto bg-transparent outline-none"
-          style={{
-            willChange: "transform",
-            contain: "layout paint",
-            backfaceVisibility: "hidden",
-          }}
-        ></textarea>
-      </div>
+      {/* ✅ textarea → FastTextarea 대체 */}
+      <FastTextarea ref={contentRef} initialValue={original} />
     </div>
   );
 }
