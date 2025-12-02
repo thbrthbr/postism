@@ -82,7 +82,7 @@ const CodeEditor: FC<CodeEditorProps> = ({
         scrollBeyondLastLine: false,
         tabSize: 2,
         wordWrap: "on",
-        wordWrapColumn: 0,
+        wrappingStrategy: "advanced", // 🔹 비고정폭 폰트용 정확한 줄 길이 계산
         wrappingIndent: "none",
         cursorBlinking: "smooth",
         renderWhitespace: "none",
