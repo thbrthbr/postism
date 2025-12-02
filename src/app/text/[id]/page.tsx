@@ -30,7 +30,6 @@ export default function Text() {
   const monaco = useMonaco();
 
   const editorRef = useRef<any>(null);
-  const contentRef = useRef<any>(null);
   const textAreaRef = useRef<HTMLTextAreaElement | null>(null);
   const isMounted = useRef(false);
 
@@ -41,12 +40,10 @@ export default function Text() {
   const [original, setOriginal] = useState("");
   const [txtTitle, setTxtTitle] = useState("");
   const [isMe, setIsMe] = useState(false);
-  const [value, setValue] = useState("");
   const [theme, setTheme] = useState<"light" | "dark" | "wood" | "pink">(
     "light",
   );
   const [location, setLocation] = useState({ x: -1, y: -1 });
-
   const [isMobile, setIsMobile] = useState(false);
 
   // ✅ 클라이언트에서만 모바일 여부 판별
@@ -140,7 +137,13 @@ export default function Text() {
       setParentId(file.parentId || "0");
       setCheckUser(file.user);
       setOriginal(text);
-      setValue(text);
+
+      if (isMobile && textAreaRef.current) {
+        textAreaRef.current.value = text;
+      } else if (editorRef.current) {
+        editorRef.current.setValue(text);
+      }
+
       setLoading(false);
     } else {
       toast({
@@ -154,13 +157,9 @@ export default function Text() {
 
   // ✅ 현재 내용 가져오기 (PC/모바일 공통)
   const getCurrentContent = () => {
-    if (isMobile) {
-      return value;
-    }
-    if (editorRef.current) {
-      return editorRef.current.getValue();
-    }
-    return value;
+    if (isMobile) return textAreaRef.current?.value || "";
+    if (editorRef.current) return editorRef.current.getValue();
+    return "";
   };
 
   // ✅ 저장
@@ -179,7 +178,7 @@ export default function Text() {
     });
     setOriginal(content);
     toast({ title: "알림", description: "저장되었습니다" });
-  }, [path, isMe, value]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [path, isMe]);
 
   // ✅ Ctrl+S 저장
   useEffect(() => {
@@ -211,11 +210,6 @@ export default function Text() {
     editorRef.current = editor;
   };
 
-  // ✅ 내용 변경 핸들러
-  const handleChange = (val?: string) => {
-    if (val !== undefined) setValue(val);
-  };
-
   // ✅ Tab 입력 (textarea 전용)
   const handleTabKey = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Tab") {
@@ -225,10 +219,9 @@ export default function Text() {
       const end = target.selectionEnd;
       const tabSpace = "  ";
 
-      const before = value.slice(0, start);
-      const after = value.slice(end);
-      const next = before + tabSpace + after;
-      setValue(next);
+      const before = target.value.slice(0, start);
+      const after = target.value.slice(end);
+      target.value = before + tabSpace + after;
 
       requestAnimationFrame(() => {
         target.selectionStart = target.selectionEnd = start + tabSpace.length;
@@ -262,12 +255,11 @@ export default function Text() {
 
   // ✅ 맨 아래로 스크롤
   const scrollToBottom = () => {
-    if (isMobile) {
-      if (textAreaRef.current) {
-        textAreaRef.current.scrollTo({
-          top: textAreaRef.current.scrollHeight,
-        });
-      }
+    if (isMobile && textAreaRef.current) {
+      textAreaRef.current.scrollTo({
+        top: textAreaRef.current.scrollHeight,
+        behavior: "smooth",
+      });
       return;
     }
     const editor = editorRef.current;
@@ -281,22 +273,14 @@ export default function Text() {
     <div
       className="relative flex h-screen w-full flex-col"
       onContextMenu={(e) => {
-        // ✅ PC에서만 커스텀 메뉴, 모바일은 기본 메뉴/드래그 유지
         if (isMobile) return;
         e.preventDefault();
-        setLocation({
-          x: e.pageX,
-          y: e.pageY,
-        });
+        setLocation({ x: e.pageX, y: e.pageY });
       }}
-      onClick={() => {
-        setLocation({ x: -1, y: -1 });
-      }}
+      onClick={() => setLocation({ x: -1, y: -1 })}
     >
-      {/* 우클릭 메뉴 */}
       {location.x !== -1 && <Menu location={location} type="inFile" />}
 
-      {/* 로딩 오버레이 */}
       {loading && (
         <div
           style={{ backgroundColor: "var(--color-bg-primary)" }}
@@ -324,7 +308,8 @@ export default function Text() {
         <button
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => {
-            const blob = new Blob([value], { type: "text/plain" });
+            const content = getCurrentContent();
+            const blob = new Blob([content], { type: "text/plain" });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
@@ -346,19 +331,16 @@ export default function Text() {
       {/* 본문: PC는 Monaco, 모바일은 textarea */}
       {isMobile ? (
         <textarea
+          ref={textAreaRef}
+          spellCheck={false}
+          readOnly={!isMe}
+          onKeyDown={handleTabKey}
+          className="scrollbar relative m-4 h-full resize-none overflow-y-scroll outline-none"
           style={{
             transition: "background-color 0.7s ease",
+            backgroundColor: "var(--color-bg-primary)",
           }}
-          readOnly={true}
-          ref={contentRef}
-          spellCheck={false}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          onKeyDown={handleTabKey}
-          className="scrollbar relative m-4 h-screen resize-none overflow-y-scroll outline-none"
-        ></textarea>
+        />
       ) : (
         <div
           className="relative m-4 flex-1 overflow-hidden rounded-md"
@@ -368,8 +350,7 @@ export default function Text() {
           }}
         >
           <CodeEditor
-            value={value}
-            onChange={handleChange}
+            value={original}
             readOnly={!isMe}
             theme={theme}
             onMount={handleEditorMount}
