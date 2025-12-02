@@ -31,7 +31,7 @@ export default function Text() {
 
   const editorRef = useRef<any>(null);
   const textAreaRef = useRef<HTMLTextAreaElement | null>(null);
-  const originalRef = useRef<string>(""); // 원본 텍스트
+  const originalRef = useRef<string>(""); // ✅ 변경
   const isMounted = useRef(false);
 
   const [path, setPath] = useState("");
@@ -46,13 +46,13 @@ export default function Text() {
   const [location, setLocation] = useState({ x: -1, y: -1 });
   const [isMobile, setIsMobile] = useState(false);
 
-  // 모바일 판별
+  // ✅ 모바일 판별
   useEffect(() => {
     if (typeof window === "undefined") return;
     setIsMobile(/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent));
   }, []);
 
-  // 테마 설정 관련 함수들
+  // ✅ CSS 변수
   const getColorVar = (name: string) =>
     getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
@@ -71,10 +71,15 @@ export default function Text() {
     return color;
   };
 
+  // ✅ 테마 정의
   const defineMonacoThemes = useCallback(() => {
     if (!monaco) return;
-    const themes = ["light", "dark", "wood", "pink"] as const;
-
+    const themes: ("light" | "dark" | "wood" | "pink")[] = [
+      "light",
+      "dark",
+      "wood",
+      "pink",
+    ];
     for (const t of themes) {
       document.documentElement.dataset.theme = t;
       const bg = normalizeColor(getColorVar("--color-bg-primary"));
@@ -93,10 +98,10 @@ export default function Text() {
         },
       });
     }
-
     document.documentElement.dataset.theme = window.__theme || "light";
   }, [monaco]);
 
+  // ✅ 테마 동기화
   useEffect(() => {
     if (!monaco || typeof window === "undefined") return;
     defineMonacoThemes();
@@ -107,13 +112,11 @@ export default function Text() {
     };
   }, [monaco, defineMonacoThemes]);
 
-  // 파일 불러오기
+  // ✅ 파일 불러오기
   const getContent = async () => {
     if (!param) return;
-
     const result = await fetch(`/api/text/${param.id}`, { cache: "no-store" });
     const final = await result.json();
-
     if (final.data.length === 0) {
       toast({
         variant: "destructive",
@@ -132,38 +135,25 @@ export default function Text() {
     setTxtTitle(file.realTitle);
     setParentId(file.parentId || "0");
     setCheckUser(file.user);
-
-    // 원본 데이터 저장
-    originalRef.current = text;
-
+    originalRef.current = text; // ✅ ref로 저장
     setLoading(false);
-  };
 
-  // textarea 렌더 후 값 주입
-  useEffect(() => {
-    if (!isMobile) return;
-    if (!textAreaRef.current) return;
-    if (!originalRef.current) return;
-
-    textAreaRef.current.value = originalRef.current;
-  }, [isMobile, textAreaRef]);
-
-  // monaco mount 시 값 적용 (유일하게 정확한 시점)
-  const handleEditorMount = (editor: any) => {
-    editorRef.current = editor;
-
-    if (originalRef.current) {
-      editor.setValue(originalRef.current);
+    // ✅ 실제 내용 반영
+    if (isMobile && textAreaRef.current) {
+      textAreaRef.current.value = text;
+    } else if (editorRef.current) {
+      editorRef.current.setValue(text);
     }
   };
 
+  // ✅ 현재 내용 가져오기
   const getCurrentContent = () => {
     if (isMobile) return textAreaRef.current?.value || "";
     if (editorRef.current) return editorRef.current.getValue();
     return "";
   };
 
-  // 저장
+  // ✅ 저장
   const editTXT = useCallback(async () => {
     const content = getCurrentContent();
     if (!isMe) {
@@ -176,11 +166,13 @@ export default function Text() {
       contentType: "text/plain;charset=utf-8",
     });
 
+    // ✅ 렌더 없이 ref만 갱신
     originalRef.current = content;
+
     toast({ title: "알림", description: "저장되었습니다" });
   }, [path, isMe]);
 
-  // Ctrl+S 저장
+  // ✅ Ctrl+S 저장
   useEffect(() => {
     const fn = (e: KeyboardEvent) => {
       if (e.ctrlKey && (e.key === "s" || e.key === "S")) {
@@ -192,7 +184,7 @@ export default function Text() {
     return () => document.removeEventListener("keydown", fn);
   }, [editTXT]);
 
-  // 최초 로딩
+  // ✅ 최초 로드
   useEffect(() => {
     if (!isMounted.current) {
       isMounted.current = true;
@@ -200,11 +192,19 @@ export default function Text() {
     }
   }, []);
 
-  // 권한 체크
+  // ✅ 권한 체크
   useEffect(() => {
     if (checkUser === session?.user?.email) setIsMe(true);
   }, [checkUser, session?.user?.email]);
 
+  const handleEditorMount = (editor: any) => {
+    editorRef.current = editor;
+    if (originalRef.current) {
+      editor.setValue(originalRef.current);
+    }
+  };
+
+  // ✅ Tab (textarea 전용)
   const handleTabKey = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Tab") {
       event.preventDefault();
@@ -221,6 +221,7 @@ export default function Text() {
     }
   };
 
+  // ✅ 뒤로가기
   const handleBack = () => {
     const current = getCurrentContent();
     if (current !== originalRef.current) {
