@@ -57,7 +57,7 @@ const CodeEditor: FC<CodeEditorProps> = ({
         fontFamily: "JetBrains Mono, Consolas, monospace",
         fontSize: 14,
         automaticLayout: true,
-        lineNumbers: "on",
+        lineNumbers: "off",
         minimap: { enabled: false },
         smoothScrolling: true,
         scrollBeyondLastLine: false,

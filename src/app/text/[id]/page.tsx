@@ -48,20 +48,20 @@ export default function Text() {
   const getColorVar = (name: string) =>
     getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
-  // ✅ HEX → ARGB 변환 (Monaco가 #fff 같은 짧은 HEX 거부함)
-  const fixColor = (color: string) => {
-    if (!color) return "#ff000000";
-    const hex = color.replace("#", "");
+  // ✅ 색상 포맷 정리 (#fff → #ffffff)
+  const normalizeColor = (color: string) => {
+    if (!color) return "#000000";
+    const hex = color.replace("#", "").trim();
     if (hex.length === 3)
       return (
-        "#ff" +
+        "#" +
         hex
           .split("")
           .map((c) => c + c)
           .join("")
       );
-    if (hex.length === 6) return "#ff" + hex;
-    return color.startsWith("#") ? color : "#ff000000";
+    if (hex.length === 6) return "#" + hex;
+    return color;
   };
 
   // ✅ Monaco 테마 정의
@@ -78,24 +78,24 @@ export default function Text() {
     for (const t of themes) {
       document.documentElement.dataset.theme = t;
 
-      const bg = getColorVar("--color-bg-primary");
-      const fg = getColorVar("--color-primary");
+      const bg = normalizeColor(getColorVar("--color-bg-primary"));
+      const fg = normalizeColor(getColorVar("--color-primary"));
 
       monaco.editor.defineTheme(t, {
-        base: t === "dark" || t === "wood" ? "vs-dark" : "vs",
+        base: t === "dark" ? "vs-dark" : "vs",
         inherit: true,
         rules: [],
         colors: {
-          "editor.background": fixColor(bg),
-          "editor.foreground": fixColor(fg),
-          "editor.lineHighlightBackground": fixColor(fg) + "20",
-          "editor.selectionBackground": fixColor(fg) + "33",
-          "editorCursor.foreground": fixColor(fg),
+          "editor.background": bg,
+          "editor.foreground": fg,
+          "editor.lineHighlightBackground": fg + "20",
+          "editor.selectionBackground": fg + "33",
+          "editorCursor.foreground": fg,
         },
       });
     }
 
-    // 원래 테마 복구
+    // 원래 테마 복귀
     document.documentElement.dataset.theme = window.__theme || "light";
   }, [monaco]);
 
@@ -239,15 +239,19 @@ export default function Text() {
       <div className="flex w-full items-center justify-center gap-16 px-1 py-3">
         {isMe && (
           <>
-            <button onClick={handleBack}>
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={handleBack}
+            >
               <FaArrowLeft />
             </button>
-            <button onClick={editTXT}>
+            <button onMouseDown={(e) => e.preventDefault()} onClick={editTXT}>
               <FaRegSave />
             </button>
           </>
         )}
         <button
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => {
             const blob = new Blob([value], { type: "text/plain" });
             const url = window.URL.createObjectURL(blob);
@@ -261,6 +265,7 @@ export default function Text() {
           <LuDownload />
         </button>
         <button
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => {
             const editor = editorRef.current;
             if (!editor) return;
