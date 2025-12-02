@@ -98,6 +98,11 @@ textarea {
   background: transparent;
 }
 
+.monaco-editor .overflow-guard {
+  padding-right: 0 !important;
+  padding-left: 0 !important;
+}
+
 @font-face {
   font-family: "Lobster";
   src: url("../../public/fonts/Lobster-Regular.ttf") format("truetype");

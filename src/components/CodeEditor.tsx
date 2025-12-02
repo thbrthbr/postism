@@ -100,13 +100,17 @@ const CodeEditor: FC<CodeEditorProps> = ({
         },
         scrollBeyondLastColumn: 0,
         lineDecorationsWidth: 0,
-        padding: { top: 8, bottom: 8 },
+        padding: { top: 8, bottom: 8 }, // ✅ right/left 명시
         overviewRulerLanes: 0,
         overviewRulerBorder: false,
         renderLineHighlight: "none",
         selectionHighlight: false,
         occurrencesHighlight: "off",
         renderLineHighlightOnlyWhenFocus: false,
+        rulers: [], // 가이드라인 여백 제거
+        // renderMarginRevertPadding: false, // minimap 자투리 제거
+        // overviewRulerBorderWidth: 0, // 내부 경계선 폭 제거
+        hideCursorInOverviewRuler: true, // ruler 관련 커서 여백 제거
       }}
     />
   );
