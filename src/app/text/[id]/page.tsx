@@ -89,7 +89,7 @@ export default function Text() {
         inherit: true,
         rules: [],
         colors: {
-          "editor.background": bg,
+          "editor.background": "#00000000",
           "editor.foreground": fg,
           "editor.lineHighlightBackground": fg + "15",
           "editor.selectionBackground": fg + "66",
@@ -348,6 +348,15 @@ export default function Text() {
             backgroundColor: "var(--color-bg-primary)",
           }}
         >
+          {/* <div
+            key={theme}
+            className="duration-[1400ms] absolute inset-0 z-10 transition-colors ease-in-out"
+            style={{
+              backgroundColor: "var(--color-bg-primary)",
+              opacity: 0.5,
+              pointerEvents: "none",
+            }}
+          /> */}
           <CodeEditor
             readOnly={!isMe}
             theme={theme}

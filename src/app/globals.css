@@ -15,15 +15,15 @@ body {
 @layer base {
   :root {
     --color-bg-primary: #fff;
-    --color-primary: black;
-    --color-secondary: black;
+    --color-primary: #000000;
+    --color-secondary: #000000;
     --color-after-action: #818cf8;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 20% 98%;
   }
 
   :root[data-theme="dark"] {
-    --color-bg-primary: black;
+    --color-bg-primary: #000000;
     --color-primary: #fff;
     --color-secondary: #fff;
     --color-after-action: #818cf8;
