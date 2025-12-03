@@ -63,6 +63,7 @@ const CodeEditor: FC<CodeEditorProps> = ({
       theme={theme}
       options={{
         readOnly,
+        stickyScroll: { enabled: false },
         fontFamily: "Arial, Helvetica, sans-serif",
         fontSize: 16,
         automaticLayout: true,
