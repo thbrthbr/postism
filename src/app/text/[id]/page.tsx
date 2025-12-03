@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { ref as storageRef, uploadString } from "firebase/storage";
 import { storage } from "@/firebase/firebaseConfig";
 import { FaArrowLeft, FaArrowDown, FaRegSave } from "react-icons/fa";
+import { MdImage } from "react-icons/md";
 import Spinner from "@/components/spinner";
 import { LuDownload } from "react-icons/lu";
 import { useSession } from "next-auth/react";
@@ -12,6 +13,9 @@ import { useToast } from "@/hooks/use-toast";
 import Swal from "sweetalert2";
 import Menu from "@/components/menu";
 import CodeEditor from "@/components/CodeEditor";
+import MarkdownImageEditor, {
+  MarkdownImageEditorRef,
+} from "@/components/MarkdownImageEditor";
 import { useMonaco } from "@monaco-editor/react";
 
 declare global {
@@ -22,7 +26,34 @@ declare global {
   }
 }
 
+if (typeof window !== "undefined") {
+  const origThen = Promise.prototype.then as any;
+
+  Promise.prototype.then = function (onFulfilled: any, onRejected: any) {
+    const safeRejected = (reason: any) => {
+      if (
+        reason &&
+        typeof reason === "object" &&
+        reason.type === "cancelation"
+      ) {
+        return; // cancellation 완전 무시
+      }
+      if (onRejected) return onRejected(reason);
+    };
+
+    return origThen.call(this, onFulfilled, safeRejected) as any;
+  };
+
+  window.addEventListener("unhandledrejection", (event) => {
+    const r = event.reason;
+    if (r && typeof r === "object" && r.type === "cancelation") {
+      event.preventDefault(); // dev overlay 에러 차단
+    }
+  });
+}
+
 export default function Text() {
+  const [clientReady, setClientReady] = useState(false);
   const { toast } = useToast();
   const { data: session } = useSession();
   const router = useRouter();
@@ -30,8 +61,8 @@ export default function Text() {
   const monaco = useMonaco();
 
   const editorRef = useRef<any>(null);
-  const textAreaRef = useRef<HTMLTextAreaElement | null>(null);
-  const originalRef = useRef<string>(""); // ✅ 변경
+  const markdownEditorRef = useRef<MarkdownImageEditorRef | null>(null);
+  const originalRef = useRef<string>("");
   const isMounted = useRef(false);
 
   const [path, setPath] = useState("");
@@ -45,14 +76,41 @@ export default function Text() {
   );
   const [location, setLocation] = useState({ x: -1, y: -1 });
   const [isMobile, setIsMobile] = useState(false);
+  const [showImages, setShowImages] = useState(false);
 
-  // ✅ 모바일 판별
+  // 🔹 PC에서 Monaco가 사용하는 내용
+  const [content, setContent] = useState("");
+
+  // 모바일 판별
   useEffect(() => {
     if (typeof window === "undefined") return;
-    setIsMobile(/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent));
+    const mobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    setIsMobile(mobile);
+    setClientReady(true);
   }, []);
 
-  // ✅ CSS 변수
+  // cancelation 에러만 씹기
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handler = (event: PromiseRejectionEvent) => {
+      const reason = event.reason;
+      if (
+        reason &&
+        typeof reason === "object" &&
+        (reason as any).type === "cancelation"
+      ) {
+        event.preventDefault();
+      }
+    };
+
+    window.addEventListener("unhandledrejection", handler);
+    return () => {
+      window.removeEventListener("unhandledrejection", handler);
+    };
+  }, []);
+
+  // CSS 변수
   const getColorVar = (name: string) =>
     getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
@@ -71,7 +129,7 @@ export default function Text() {
     return color;
   };
 
-  // ✅ 테마 정의
+  // 테마 정의
   const defineMonacoThemes = useCallback(() => {
     if (!monaco) return;
     const themes: ("light" | "dark" | "wood" | "pink")[] = [
@@ -101,7 +159,7 @@ export default function Text() {
     document.documentElement.dataset.theme = window.__theme || "light";
   }, [monaco]);
 
-  // ✅ 테마 동기화
+  // 테마 동기화
   useEffect(() => {
     if (!monaco || typeof window === "undefined") return;
     defineMonacoThemes();
@@ -112,7 +170,7 @@ export default function Text() {
     };
   }, [monaco, defineMonacoThemes]);
 
-  // ✅ 파일 불러오기
+  // 파일 불러오기
   const getContent = async () => {
     if (!param) return;
     const result = await fetch(`/api/text/${param.id}`, { cache: "no-store" });
@@ -135,54 +193,38 @@ export default function Text() {
     setTxtTitle(file.realTitle);
     setParentId(file.parentId || "0");
     setCheckUser(file.user);
-    originalRef.current = text; // ✅ ref로 저장
+
+    originalRef.current = text;
+    setContent(text);
     setLoading(false);
-
-    // ✅ 실제 내용 반영
-    if (isMobile && textAreaRef.current) {
-      textAreaRef.current.value = text;
-    } else if (editorRef.current) {
-      editorRef.current.setValue(text);
-    }
   };
 
-  useEffect(() => {
-    if (!loading && originalRef.current) {
-      if (isMobile && textAreaRef.current) {
-        textAreaRef.current.value = originalRef.current;
-      } else if (!isMobile && editorRef.current) {
-        editorRef.current.setValue(originalRef.current);
-      }
-    }
-  }, [isMobile, loading]);
-
-  // ✅ 현재 내용 가져오기
+  // 🔹 현재 내용 가져오기 (모바일 + 이미지 모드일 땐 MarkdownImageEditor에서)
   const getCurrentContent = () => {
-    if (isMobile) return textAreaRef.current?.value || "";
-    if (editorRef.current) return editorRef.current.getValue();
-    return "";
+    if ((isMobile || showImages) && markdownEditorRef.current) {
+      return markdownEditorRef.current.getValue();
+    }
+    return content;
   };
 
-  // ✅ 저장
+  // 저장
   const editTXT = useCallback(async () => {
-    const content = getCurrentContent();
+    const current = getCurrentContent();
     if (!isMe) {
       toast({ title: "알림", description: "수정권한이 없습니다" });
       return;
     }
 
     const fileRef = storageRef(storage, `texts/${path}.txt`);
-    await uploadString(fileRef, content, "raw", {
+    await uploadString(fileRef, current, "raw", {
       contentType: "text/plain;charset=utf-8",
     });
 
-    // ✅ 렌더 없이 ref만 갱신
-    originalRef.current = content;
-
+    originalRef.current = current;
     toast({ title: "알림", description: "저장되었습니다" });
-  }, [path, isMe]);
+  }, [path, isMe, content, isMobile, showImages]);
 
-  // ✅ Ctrl+S 저장
+  // Ctrl+S 저장
   useEffect(() => {
     const fn = (e: KeyboardEvent) => {
       if (e.ctrlKey && (e.key === "s" || e.key === "S")) {
@@ -194,7 +236,7 @@ export default function Text() {
     return () => document.removeEventListener("keydown", fn);
   }, [editTXT]);
 
-  // ✅ 최초 로드
+  // 최초 로드
   useEffect(() => {
     if (!isMounted.current) {
       isMounted.current = true;
@@ -202,36 +244,25 @@ export default function Text() {
     }
   }, []);
 
-  // ✅ 권한 체크
+  // 권한 체크
   useEffect(() => {
     if (checkUser === session?.user?.email) setIsMe(true);
   }, [checkUser, session?.user?.email]);
 
   const handleEditorMount = (editor: any) => {
     editorRef.current = editor;
-    if (originalRef.current) {
-      editor.setValue(originalRef.current);
-    }
   };
 
-  // ✅ Tab (textarea 전용)
-  const handleTabKey = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === "Tab") {
-      event.preventDefault();
-      const target = event.target as HTMLTextAreaElement;
-      const start = target.selectionStart;
-      const end = target.selectionEnd;
-      const tabSpace = "  ";
-      const before = target.value.slice(0, start);
-      const after = target.value.slice(end);
-      target.value = before + tabSpace + after;
-      requestAnimationFrame(() => {
-        target.selectionStart = target.selectionEnd = start + tabSpace.length;
-      });
-    }
+  // 🔹 MarkdownImageEditor mount 시 초기 값 주입 (모바일 + PC 공통)
+  const handleMarkdownMount = () => {
+    if (!markdownEditorRef.current) return;
+
+    // 우선순위: 아직 편집 안 했으면 originalRef → 이미 Monaco 편집했으면 content
+    const base = originalRef.current || content;
+    markdownEditorRef.current.setValue(base);
   };
 
-  // ✅ 뒤로가기
+  // 뒤로가기
   const handleBack = () => {
     const current = getCurrentContent();
     if (current !== originalRef.current) {
@@ -256,11 +287,14 @@ export default function Text() {
   };
 
   const scrollToBottom = () => {
-    if (isMobile && textAreaRef.current) {
-      textAreaRef.current.scrollTo({
-        top: textAreaRef.current.scrollHeight,
-        behavior: "smooth",
-      });
+    if ((isMobile || showImages) && markdownEditorRef.current) {
+      const editorElement = document.querySelector('[contenteditable="true"]');
+      if (editorElement) {
+        (editorElement as HTMLElement).scrollTo({
+          top: editorElement.scrollHeight,
+          behavior: "smooth",
+        });
+      }
       return;
     }
     const editor = editorRef.current;
@@ -268,6 +302,27 @@ export default function Text() {
     const model = editor.getModel();
     if (!model) return;
     editor.revealLine(model.getLineCount());
+  };
+
+  // 🔹 이미지 보기 토글
+  const toggleImageView = () => {
+    // 모바일은 어차피 항상 MarkdownImageEditor만 쓰므로 단순 토글
+    if (isMobile) {
+      setShowImages((prev) => !prev);
+      return;
+    }
+
+    // PC에서는 showImages true일 때 Markdown → false일 때 Monaco로 돌아가면서 내용 sync
+    setShowImages((prev) => {
+      if (prev) {
+        // 이미지 모드 → 텍스트 모드로 돌아갈 때, Markdown 내용 → content로 sync
+        if (markdownEditorRef.current) {
+          const text = markdownEditorRef.current.getValue();
+          setContent(text);
+        }
+      }
+      return !prev;
+    });
   };
 
   return (
@@ -305,11 +360,12 @@ export default function Text() {
             </button>
           </>
         )}
+
         <button
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => {
-            const content = getCurrentContent();
-            const blob = new Blob([content], { type: "text/plain" });
+            const current = getCurrentContent();
+            const blob = new Blob([current], { type: "text/plain" });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
@@ -320,27 +376,43 @@ export default function Text() {
         >
           <LuDownload className="font-bold" />
         </button>
+
         <button
           onMouseDown={(e) => e.preventDefault()}
           onClick={scrollToBottom}
         >
           <FaArrowDown />
         </button>
+
+        {/* 🔹 이제 PC에서도 이미지 토글 버튼 사용 */}
+        <button
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={toggleImageView}
+          style={{
+            color: showImages ? "var(--color-accent)" : "var(--color-primary)",
+          }}
+        >
+          <MdImage className="text-xl" />
+        </button>
       </div>
 
-      {isMobile ? (
-        <textarea
-          ref={textAreaRef}
-          spellCheck={false}
-          readOnly={!isMe}
-          onKeyDown={handleTabKey}
-          className="scrollbar relative m-4 h-full resize-none overflow-y-scroll outline-none"
-          style={{
-            transition: "background-color 0.7s ease",
-            backgroundColor: "var(--color-bg-primary)",
-          }}
-        />
+      {/* 🔹 모바일이거나, 이미지 보기 모드일 때는 MarkdownImageEditor 사용 */}
+      {isMobile || showImages ? (
+        <div className="m-4 h-full overflow-hidden">
+          <MarkdownImageEditor
+            ref={markdownEditorRef}
+            readOnly={!isMe}
+            showImages={showImages}
+            className="scrollbar"
+            style={{
+              transition: "background-color 0.7s ease",
+              backgroundColor: "var(--color-bg-primary)",
+            }}
+            onMount={handleMarkdownMount}
+          />
+        </div>
       ) : (
+        // 🔹 PC + 텍스트 모드일 때만 Monaco CodeEditor 사용
         <div
           className="relative m-4 flex-1 overflow-hidden rounded-md"
           style={{
@@ -348,18 +420,11 @@ export default function Text() {
             backgroundColor: "var(--color-bg-primary)",
           }}
         >
-          {/* <div
-            key={theme}
-            className="duration-[1400ms] absolute inset-0 z-10 transition-colors ease-in-out"
-            style={{
-              backgroundColor: "var(--color-bg-primary)",
-              opacity: 0.5,
-              pointerEvents: "none",
-            }}
-          /> */}
           <CodeEditor
             readOnly={!isMe}
             theme={theme}
+            value={content}
+            onChange={(val) => setContent(val)}
             onMount={handleEditorMount}
           />
         </div>

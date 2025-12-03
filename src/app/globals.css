@@ -118,6 +118,30 @@ textarea {
   display: none !important;
 }
 
+.fake-textarea {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  outline: none;
+  resize: none;
+  background: var(--color-bg-primary);
+  color: var(--color-primary);
+  padding: 8px;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  transition: background-color 0.3s ease;
+}
+
+/* placeholder 표시 */
+.fake-textarea:empty::before {
+  content: attr(data-placeholder);
+  color: #aaa;
+  pointer-events: none;
+}
+
 @font-face {
   font-family: "Lobster";
   src: url("../../public/fonts/Lobster-Regular.ttf") format("truetype");
