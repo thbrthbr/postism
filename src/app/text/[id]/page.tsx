@@ -325,6 +325,14 @@ export default function Text() {
     });
   };
 
+  useEffect(() => {
+    if (!markdownEditorRef.current) return;
+    if (loading) return;
+
+    const base = originalRef.current || content;
+    markdownEditorRef.current.setValue(base);
+  }, [loading, content, showImages]);
+
   return (
     <div
       className="relative flex h-screen w-full flex-col"
