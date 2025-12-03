@@ -74,6 +74,7 @@ const CodeEditor: FC<CodeEditorProps> = ({
         minimap: { enabled: false },
         smoothScrolling: true,
         scrollBeyondLastLine: false,
+        bracketPairColorization: { enabled: false },
         tabSize: 2,
         wordWrap: "on",
         wrappingStrategy: "advanced",
@@ -103,6 +104,9 @@ const CodeEditor: FC<CodeEditorProps> = ({
         renderLineHighlightOnlyWhenFocus: false,
         rulers: [],
         hideCursorInOverviewRuler: true,
+        matchBrackets: "never", // 커서 괄호 하이라이트 제거
+        hover: { enabled: false }, // 마우스 올릴 때 툴팁 제거
+        codeLens: false, // 함수 위에 뜨는 주석형 정보 제거
       }}
     />
   );
