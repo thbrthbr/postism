@@ -392,12 +392,11 @@ export default function Text() {
           <FaArrowDown />
         </button>
 
-        {/* 🔹 이제 PC에서도 이미지 토글 버튼 사용 */}
         <button
           onMouseDown={(e) => e.preventDefault()}
           onClick={toggleImageView}
           style={{
-            color: showImages ? "var(--color-accent)" : "var(--color-primary)",
+            color: showImages ? "red" : "var(--color-primary)",
           }}
         >
           <MdImage className="text-xl" />
