@@ -2,6 +2,7 @@
 
 import { FC, useEffect, useRef } from "react";
 import Editor, { OnChange, useMonaco } from "@monaco-editor/react";
+import Spinner from "./spinner";
 
 interface CodeEditorProps {
   value?: string;
@@ -55,6 +56,7 @@ const CodeEditor: FC<CodeEditorProps> = ({
 
   return (
     <Editor
+      loading={null}
       height="100%"
       defaultLanguage={language}
       value={value}
@@ -62,6 +64,7 @@ const CodeEditor: FC<CodeEditorProps> = ({
       onMount={handleMount}
       theme={theme}
       options={{
+        lineHeight: 26,
         readOnly,
         stickyScroll: { enabled: false },
         fontFamily: "Arial, Helvetica, sans-serif",

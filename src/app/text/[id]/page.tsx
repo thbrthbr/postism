@@ -153,6 +153,9 @@ export default function Text() {
           "editor.selectionBackground": fg + "66",
           "editor.selectionHighlightBackground": fg + "55",
           "editorCursor.foreground": fg,
+          "scrollbarSlider.background": fg + "33", // 기본
+          "scrollbarSlider.hoverBackground": fg + "66", // hover 시
+          "scrollbarSlider.activeBackground": fg + "99", // 드래그 중
         },
       });
     }

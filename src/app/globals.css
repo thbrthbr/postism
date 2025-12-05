@@ -85,13 +85,25 @@ textarea {
 }
 
 .scrollbar::-webkit-scrollbar {
-  width: 10px;
+  width: 8px;
 }
 
 .scrollbar::-webkit-scrollbar-thumb {
-  background: var(--color-primary);
+  background-color: color-mix(
+    in srgb,
+    currentColor 25%,
+    transparent
+  ); /* 기본 투명 */
   border-radius: 10px;
-  cursor: default;
+  transition: background-color 0.3s ease;
+}
+
+.scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(
+    in srgb,
+    currentColor 45%,
+    transparent
+  ); /* hover 시 진하게 */
 }
 
 .scrollbar::-webkit-scrollbar-track {

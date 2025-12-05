@@ -240,13 +240,13 @@ const MarkdownImageEditor = forwardRef<
         onInput={handleInput}
         onKeyDown={handleKeyDown}
         spellCheck={false}
-        className={`h-full w-full overflow-y-auto p-4 outline-none ${className}`}
+        className={`h-full w-full overflow-y-auto py-2 outline-none ${className}`}
         style={{
           whiteSpace: "pre-wrap",
           wordBreak: "break-word",
           fontFamily: "Arial, Helvetica, sans-serif",
           fontSize: "16px",
-          lineHeight: "1.6",
+          lineHeight: "26px",
           ...style,
         }}
       />
