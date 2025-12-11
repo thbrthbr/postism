@@ -633,16 +633,21 @@ export default function UserPage({ id }: Props) {
 
   useEffect(() => {
     if (isMounted.current) {
+      console.log("1");
       if (id === undefined) {
+        console.log("2");
         if (session && session?.user?.email !== previousEmail) {
+          console.log("3");
           getWritten();
           setPreviousEmail(session?.user?.email);
         }
       } else {
+        console.log("4");
         getWritten();
         setPreviousEmail(session?.user?.email);
       }
     } else {
+      console.log("5");
       isMounted.current = true;
     }
   }, [session]);
