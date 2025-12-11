@@ -430,19 +430,21 @@ export default function UserPage({ id }: Props) {
           },
         );
         const final = await res.json();
-        if (final.data.staus == "성공") {
-          const tempArr = [];
-          for (let i = 0; i < datas.length; i++) {
-            if (datas[i].id !== id) {
-              tempArr.push(datas[i]);
+        if (final.message == "결과") {
+          if (final.data.status == "성공") {
+            const tempArr = [];
+            for (let i = 0; i < datas.length; i++) {
+              if (datas[i].id !== id) {
+                tempArr.push(datas[i]);
+              }
             }
+            setDatas(tempArr);
+          } else {
+            toast({
+              title: "알림",
+              description: "삭제하실 수 없습니다",
+            });
           }
-          setDatas(tempArr);
-        } else {
-          toast({
-            title: "알림",
-            description: "삭제하실 수 없습니다",
-          });
         }
       }
     });
