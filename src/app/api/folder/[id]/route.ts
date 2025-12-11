@@ -70,14 +70,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
-  const { id } = context.params;
-
+  const { id } = await context.params;
   try {
     if (id === "delete") {
       const body = await request.json();
-      const { id: textId } = body;
+      const { id: textid, email } = body;
 
-      const deleteResult = await deleteSpecificFolder(textId);
+      const deleteResult = await deleteSpecificFolder({ id: textid, email });
 
       if (!deleteResult) {
         return NextResponse.json(
@@ -87,7 +86,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       }
 
       return NextResponse.json(
-        { message: "삭제 성공", data: deleteResult },
+        { message: "결과", data: deleteResult },
         { status: 200 }, // 200 OK
       );
     }

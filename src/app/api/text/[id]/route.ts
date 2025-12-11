@@ -13,6 +13,7 @@ interface RouteContext {
 
 export async function GET(request: NextRequest, context: RouteContext) {
   const { id } = await context.params;
+  console.log(id);
   try {
     const fetchedSearchTexts = await getSpecificText(id);
 
@@ -83,9 +84,12 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
   try {
     if (id === "delete") {
       const body = await request.json();
-      const { id: textId, title } = body;
-
-      const deleteResult = await deleteSpecificText(textId, title);
+      const { id: textId, title, email } = body;
+      const deleteResult = await deleteSpecificText({
+        id: textId,
+        title: title,
+        email: email,
+      });
 
       if (!deleteResult) {
         return NextResponse.json(
@@ -95,7 +99,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       }
 
       return NextResponse.json(
-        { message: "삭제 성공", data: deleteResult },
+        { message: "결과", data: deleteResult },
         { status: 200 }, // 200 OK
       );
     }

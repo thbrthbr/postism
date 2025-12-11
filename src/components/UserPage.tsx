@@ -43,11 +43,12 @@ export default function UserPage({ id }: Props) {
   const [previousEmail, setPreviousEmail] = useState<string | null | undefined>(
     null,
   );
+  const [owner, setOwner] = useState<string>("");
   const [datas, setDatas] = useState<any>([]);
   const [folders, setFolders] = useState<any>([]);
   const [foldersCount, setFoldersCount] = useState<number[]>([]);
   const [dataCount, setDataCount] = useState<number[]>([]);
-  const [currentDataId, setCurentDataId] = useState("");
+  const [currentDataId, setCurrentDataId] = useState("");
   const [testSwitch, setTestSwitch] = useState<any>({
     id: "",
     toggle: false,
@@ -91,9 +92,25 @@ export default function UserPage({ id }: Props) {
               },
             );
             const final = await brought.json();
-            const semi = datas.slice(0);
-            semi.unshift(final.data);
-            setDatas(semi);
+            if (final.message === "무라사키") {
+              const semi = datas.slice(0);
+              semi.unshift(final.data);
+              setDatas(semi);
+            } else {
+              toast({
+                title: "알림",
+                description: "업로드에 실패하셨습니다",
+              });
+              await fetch(`${process.env.NEXT_PUBLIC_SITE}/api/text/delete`, {
+                method: "DELETE",
+                body: JSON.stringify({
+                  id: "nope",
+                  title: `${fileName}:${key}`,
+                  email: session?.user?.email,
+                }),
+                cache: "no-store",
+              });
+            }
             setLocation({
               x: -1,
               y: -1,
@@ -143,9 +160,25 @@ export default function UserPage({ id }: Props) {
               },
             );
             const final = await brought.json();
-            const semi = datas.slice(0);
-            semi.unshift(final.data);
-            setDatas(semi);
+            if (final.message === "무라사키") {
+              const semi = datas.slice(0);
+              semi.unshift(final.data);
+              setDatas(semi);
+            } else {
+              toast({
+                title: "알림",
+                description: "업로드에 실패하셨습니다",
+              });
+              await fetch(`${process.env.NEXT_PUBLIC_SITE}/api/text/delete`, {
+                method: "DELETE",
+                body: JSON.stringify({
+                  id: "nope",
+                  title: `${fileName}:${key}`,
+                  email: session?.user?.email,
+                }),
+                cache: "no-store",
+              });
+            }
             setLocation({
               x: -1,
               y: -1,
@@ -197,13 +230,32 @@ export default function UserPage({ id }: Props) {
       });
 
       const final = await response.json();
-      let tempCopy = temp.slice(0);
-      tempCopy = tempCopy.map((item: any) => {
-        return item.title === optimisticData.title
-          ? { ...item, path: downUrl, id: final.data.id }
-          : item;
-      });
-      setDatas(tempCopy);
+      if (final.message === "무라사키") {
+        let tempCopy = temp.slice(0);
+        tempCopy = tempCopy.map((item: any) => {
+          return item.title === optimisticData.title
+            ? { ...item, path: downUrl, id: final.data.id }
+            : item;
+        });
+        setDatas(tempCopy);
+      } else {
+        toast({
+          title: "알림",
+          description: "업로드에 실패하셨습니다",
+        });
+        setDatas((prevDatas: any) =>
+          prevDatas.filter((item: any) => item.id !== optimisticData.id),
+        );
+        await fetch(`${process.env.NEXT_PUBLIC_SITE}/api/text/delete`, {
+          method: "DELETE",
+          body: JSON.stringify({
+            id: "nope",
+            title: `${fileName}:${key}`,
+            email: session?.user?.email,
+          }),
+          cache: "no-store",
+        });
+      }
     } catch (error) {
       console.error("Error adding text:", error);
       // alert("Failed to upload text");
@@ -221,14 +273,14 @@ export default function UserPage({ id }: Props) {
 
   const getFolders = async () => {
     const result = await fetch(
-      `${process.env.NEXT_PUBLIC_SITE}/api/folder?id=${session?.user?.email}:${id || ""}`,
+      `${process.env.NEXT_PUBLIC_SITE}/api/folder?id=${session?.user?.email}:${id || "0"}`,
       {
         method: "GET",
         cache: "no-store",
       },
     );
-    const folders = await result.json();
-    const sorted = folders.data
+    const tempfolders = await result.json();
+    const sorted = tempfolders.data
       .sort((x: any, y: any) => x.order - y.order)
       .reverse();
 
@@ -252,7 +304,7 @@ export default function UserPage({ id }: Props) {
       });
       router.push("/");
     }
-    getFolders();
+    await getFolders();
     const result = await fetch(
       `${process.env.NEXT_PUBLIC_SITE}/api/text?id=${session?.user?.email}:${id || "0"}`,
       {
@@ -275,8 +327,6 @@ export default function UserPage({ id }: Props) {
     const finalSorted = [...likedItems.reverse(), ...unlikedItems];
     setDatas(finalSorted);
     setDataCount([finalSorted.length]);
-    // setDatas(sorted);
-    // setDataCount([sorted.length]);
     setLoading(false);
   };
 
@@ -289,9 +339,9 @@ export default function UserPage({ id }: Props) {
 
     // Optimistic UI - UI에 새 데이터 먼저 추가
     const optimisticData = {
-      id: "temp", // 서버에서 id를 받아오는 것으로 변경 가능
+      id: "temp",
       title: `${fileName}:${key}`,
-      path: "", // URL을 비워두고 나중에 업데이트
+      path: "",
       order: key,
       realTitle: fileName,
       user: session?.user?.email,
@@ -322,16 +372,25 @@ export default function UserPage({ id }: Props) {
       );
 
       const final = await response.json();
-      let tempCopy = temp.slice(0);
-      tempCopy = tempCopy.map((item: any) => {
-        return item.title === optimisticData.title
-          ? { ...item, id: final.data.id }
-          : item;
-      });
-      setFolders(tempCopy);
+      if (final.message == "무라사키") {
+        let tempCopy = temp.slice(0);
+        tempCopy = tempCopy.map((item: any) => {
+          return item.title === optimisticData.title
+            ? { ...item, id: final.data.id }
+            : item;
+        });
+        setFolders(tempCopy);
+      } else {
+        toast({
+          title: "알림",
+          description: "업로드에 실패하셨습니다",
+        });
+        setFolders((prevDatas: any) =>
+          prevDatas.filter((item: any) => item.id !== optimisticData.id),
+        );
+      }
     } catch (error) {
       console.error("Error adding folder:", error);
-      // alert("Failed to upload text");
       toast({
         title: "알림",
         description: "업로드에 실패하셨습니다",
@@ -365,12 +424,13 @@ export default function UserPage({ id }: Props) {
             body: JSON.stringify({
               id,
               title,
+              email: session?.user?.email,
             }),
             cache: "no-store",
           },
         );
         const final = await res.json();
-        if (final.message == "삭제 성공") {
+        if (final.data.staus == "성공") {
           const tempArr = [];
           for (let i = 0; i < datas.length; i++) {
             if (datas[i].id !== id) {
@@ -378,6 +438,11 @@ export default function UserPage({ id }: Props) {
             }
           }
           setDatas(tempArr);
+        } else {
+          toast({
+            title: "알림",
+            description: "삭제하실 수 없습니다",
+          });
         }
       }
     });
@@ -398,20 +463,28 @@ export default function UserPage({ id }: Props) {
           {
             method: "DELETE",
             body: JSON.stringify({
+              email: session?.user?.email,
               id,
             }),
             cache: "no-store",
           },
         );
         const final = await res.json();
-        if (final.message == "삭제 성공") {
-          const temp = [];
-          for (let i = 0; i < folders.length; i++) {
-            if (folders[i].id !== id) {
-              temp.push(folders[i]);
+        if (final.message == "결과") {
+          if (final.data.status === "성공") {
+            const temp = [];
+            for (let i = 0; i < folders.length; i++) {
+              if (folders[i].id !== id) {
+                temp.push(folders[i]);
+              }
             }
+            setFolders(temp);
+          } else {
+            toast({
+              title: "알림",
+              description: "삭제하실 수 없습니다",
+            });
           }
-          setFolders(temp);
         }
       }
     });
@@ -434,6 +507,7 @@ export default function UserPage({ id }: Props) {
         body: JSON.stringify({
           id,
           newTitle,
+          email: session?.user?.email,
         }),
         cache: "no-store",
       });
@@ -443,6 +517,7 @@ export default function UserPage({ id }: Props) {
         body: JSON.stringify({
           id,
           newTitle,
+          email: session?.user?.email,
         }),
         cache: "no-store",
       });
@@ -489,6 +564,7 @@ export default function UserPage({ id }: Props) {
           id,
           type,
           newPath,
+          email: session?.user?.email,
         }),
         cache: "no-store",
       },
@@ -533,6 +609,7 @@ export default function UserPage({ id }: Props) {
     });
     const final = await result.json();
     setLoadedParentId(final.data[0].parentId);
+    setOwner(final.data[0].user);
   };
 
   const changePosition = (datas: any) => {
@@ -634,23 +711,25 @@ export default function UserPage({ id }: Props) {
           }
       }}
     >
-      {location.x !== -1 && (
-        <Menu
-          location={location}
-          customFunctions={{ addText: uploadWritten, addFolder: addFolders }}
-        />
-      )}
-      {location2.x !== -1 && (
-        <Menu
-          type="onFile"
-          location={location2}
-          customFunctions={{
-            addText: uploadWritten,
-            addFolder: addFolders,
-            editPath: editPath,
-          }}
-        />
-      )}
+      {location.x !== -1 &&
+        (owner == session?.user?.email || id == undefined) && (
+          <Menu
+            location={location}
+            customFunctions={{ addText: uploadWritten, addFolder: addFolders }}
+          />
+        )}
+      {location2.x !== -1 &&
+        (owner == session?.user?.email || id == undefined) && (
+          <Menu
+            type="onFile"
+            location={location2}
+            customFunctions={{
+              addText: uploadWritten,
+              addFolder: addFolders,
+              editPath: editPath,
+            }}
+          />
+        )}
       <div className="w-full">
         {loading ? (
           <div
@@ -665,19 +744,21 @@ export default function UserPage({ id }: Props) {
           <>
             {pathName === "folder" && (
               <div className="m-8 w-full">
-                <button
-                  onClick={() => {
-                    if (loadedParentId) {
-                      if (loadedParentId !== "0") {
-                        router.push(`/folder/${loadedParentId}`);
-                      } else {
-                        router.push("/");
+                {owner == session?.user?.email && (
+                  <button
+                    onClick={() => {
+                      if (loadedParentId) {
+                        if (loadedParentId !== "0") {
+                          router.push(`/folder/${loadedParentId}`);
+                        } else {
+                          router.push("/");
+                        }
                       }
-                    }
-                  }}
-                >
-                  <FaArrowLeft />
-                </button>
+                    }}
+                  >
+                    <FaArrowLeft />
+                  </button>
+                )}
               </div>
             )}
             <div className="m-8 flex select-none flex-wrap justify-center gap-8 sm:justify-start">
@@ -721,22 +802,26 @@ export default function UserPage({ id }: Props) {
                         }}
                         className="relative h-[160px] w-[112px] rounded-md border-2 border-customBorder sm:h-[200px] sm:w-[140px]"
                       >
-                        <div className="absolute left-1 top-1">
-                          <Heart
-                            data={folder}
-                            liked={folder.liked}
-                            setData={setTestSwitch}
-                          />
-                        </div>
-                        <div
-                          className="absolute end-0 p-1"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteFolder(folder.id);
-                          }}
-                        >
-                          <IoIosClose />
-                        </div>
+                        {folder.user === session?.user?.email && (
+                          <>
+                            <div className="absolute left-1 top-1">
+                              <Heart
+                                data={folder}
+                                liked={folder.liked}
+                                setData={setTestSwitch}
+                              />
+                            </div>
+                            <div
+                              className="absolute end-0 p-1"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteFolder(folder.id);
+                              }}
+                            >
+                              <IoIosClose />
+                            </div>
+                          </>
+                        )}
                         <div className="ml-4 mr-4 flex h-full items-center justify-center">
                           {folder.id === "temp" ? (
                             <div className="flex items-center justify-center text-center">
@@ -752,13 +837,18 @@ export default function UserPage({ id }: Props) {
                       <div
                         className="w-full"
                         onClick={(e) => {
-                          if (folder.id !== "temp") {
-                            handleEditTitle(
-                              e,
-                              (idx + 1) * -1 * 1000,
-                              folderInputId,
-                            );
-                            setCurentDataId(folder.id);
+                          if (
+                            owner == session?.user?.email ||
+                            id == undefined
+                          ) {
+                            if (folder.id !== "temp") {
+                              handleEditTitle(
+                                e,
+                                (idx + 1) * -1 * 1000,
+                                folderInputId,
+                              );
+                              setCurrentDataId(folder.id);
+                            }
                           }
                         }}
                       >
@@ -799,24 +889,26 @@ export default function UserPage({ id }: Props) {
             </div>
             <div className="m-8 flex select-none flex-wrap justify-center gap-8 sm:justify-start">
               <AnimatePresence>
-                <motion.div
-                  className="flex h-auto max-h-[160px] w-[112px] flex-col items-center sm:max-h-[200px] sm:w-[140px]"
-                  key={0}
-                  layout
-                  layoutId="addButton"
-                  onClick={addWritten}
-                  onContextMenu={(e) => {
-                    e.stopPropagation();
-                  }}
-                >
-                  <div className="h-[160px] w-[112px] rounded-md border-2 border-customBorder sm:h-[200px] sm:w-[140px]">
-                    <div className="ml-4 mr-4 flex h-full cursor-pointer items-center justify-center text-center text-4xl">
-                      +
+                {(owner == session?.user?.email || id == undefined) && (
+                  <motion.div
+                    className="flex h-auto max-h-[160px] w-[112px] flex-col items-center sm:max-h-[200px] sm:w-[140px]"
+                    key={0}
+                    layout
+                    layoutId="addButton"
+                    onClick={addWritten}
+                    onContextMenu={(e) => {
+                      e.stopPropagation();
+                    }}
+                  >
+                    <div className="h-[160px] w-[112px] rounded-md border-2 border-customBorder sm:h-[200px] sm:w-[140px]">
+                      <div className="ml-4 mr-4 flex h-full cursor-pointer items-center justify-center text-center text-4xl">
+                        +
+                      </div>
                     </div>
-                  </div>
-                </motion.div>
+                  </motion.div>
+                )}
                 {datas.map((data: any, idx: number) => {
-                  const inputId = data.title.replace(":", "-");
+                  const inputId = data?.title.replace(":", "-");
                   return (
                     <motion.div
                       className={`actioned z-40 flex w-[112px] select-none sm:w-[140px] ${data.id !== "temp" && "cursor-pointer"} flex-col items-center`}
@@ -853,22 +945,26 @@ export default function UserPage({ id }: Props) {
                         }}
                         className="relative h-[160px] w-[112px] rounded-md border-2 border-customBorder sm:h-[200px] sm:w-[140px]"
                       >
-                        <div className="absolute left-1 top-1">
-                          <Heart
-                            data={data}
-                            liked={data.liked}
-                            setData={setTestSwitch}
-                          />
-                        </div>
-                        <div
-                          className="absolute end-0 p-1"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteWritten(data.id, data.title);
-                          }}
-                        >
-                          <IoIosClose />
-                        </div>
+                        {data.user === session?.user?.email && (
+                          <>
+                            <div className="absolute left-1 top-1">
+                              <Heart
+                                data={data}
+                                liked={data.liked}
+                                setData={setTestSwitch}
+                              />
+                            </div>
+                            <div
+                              className="absolute end-0 p-1"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteWritten(data.id, data.title);
+                              }}
+                            >
+                              <IoIosClose />
+                            </div>
+                          </>
+                        )}
                         <div className="ml-4 mr-4 flex h-full items-center justify-center">
                           {data.id === "temp" ? (
                             <div className="flex items-center justify-center text-center">
@@ -884,9 +980,14 @@ export default function UserPage({ id }: Props) {
                       <div
                         className="w-full"
                         onClick={(e) => {
-                          if (data.id !== "temp") {
-                            handleEditTitle(e, idx, inputId);
-                            setCurentDataId(data.id);
+                          if (
+                            owner == session?.user?.email ||
+                            id == undefined
+                          ) {
+                            if (data.id !== "temp") {
+                              handleEditTitle(e, idx, inputId);
+                              setCurrentDataId(data.id);
+                            }
                           }
                         }}
                       >

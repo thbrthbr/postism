@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const { title, path, order, realTitle, user, liked, parentId } =
     await request.json();
+  let response;
   const addedText = await addText({
     realTitle,
     title,
@@ -25,9 +26,16 @@ export async function POST(request: NextRequest) {
     liked,
     parentId,
   });
-  const response = {
-    message: "무라사키",
-    data: addedText,
-  };
+  if (addedText.id === undefined) {
+    response = {
+      message: "아오",
+      data: addedText,
+    };
+  } else {
+    response = {
+      message: "무라사키",
+      data: addedText,
+    };
+  }
   return Response.json(response, { status: 200 });
 }
