@@ -164,8 +164,6 @@ export async function getTexts(id, textId) {
 
 export async function getFolders(id, folderId) {
   let querySnapshot;
-  console.log(id);
-  console.log(folderId);
   if (folderId == "0") {
     querySnapshot = await getDocs(
       query(
