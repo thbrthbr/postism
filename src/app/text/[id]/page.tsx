@@ -249,7 +249,12 @@ export default function Text() {
 
   // 권한 체크
   useEffect(() => {
-    if (checkUser === session?.user?.email) setIsMe(true);
+    if (checkUser === session?.user?.email) {
+      setIsMe(true);
+      setShowImages(false);
+    } else {
+      setShowImages(true);
+    }
   }, [checkUser, session?.user?.email]);
 
   const handleEditorMount = (editor: any) => {
