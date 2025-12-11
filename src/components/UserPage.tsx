@@ -297,13 +297,13 @@ export default function UserPage({ id }: Props) {
   };
 
   const getWritten = async () => {
-    if (!session) {
-      toast({
-        title: "알림",
-        description: "다시 로그인 해주세요",
-      });
-      router.push("/");
-    }
+    // if (!session) {
+    //   toast({
+    //     title: "알림",
+    //     description: "다시 로그인 해주세요",
+    //   });
+    //   router.push("/");
+    // }
     await getFolders();
     const result = await fetch(
       `${process.env.NEXT_PUBLIC_SITE}/api/text?id=${session?.user?.email}:${id || "0"}`,
@@ -632,22 +632,18 @@ export default function UserPage({ id }: Props) {
   }, []);
 
   useEffect(() => {
-    if (session && session?.user?.email !== previousEmail) {
-      // session이 갱신되었을 때만 getWritten을 호출
-      getWritten();
-      setPreviousEmail(session?.user?.email);
-    } else {
-      if (isMounted.current) {
-        if (!session) {
-          toast({
-            title: "알림",
-            description: "다시 로그인 해주세요",
-          });
-          router.push("/");
+    if (isMounted.current) {
+      if (id === undefined) {
+        if (session && session?.user?.email !== previousEmail) {
+          getWritten();
+          setPreviousEmail(session?.user?.email);
         }
       } else {
-        isMounted.current = true;
+        getWritten();
+        setPreviousEmail(session?.user?.email);
       }
+    } else {
+      isMounted.current = true;
     }
   }, [session]);
 
