@@ -24,7 +24,7 @@ interface Props {
 export default function UserPage({ id }: Props) {
   const { toast } = useToast();
   const pathName = usePathname().split("/")[1];
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const isMounted = useRef(false);
   const [isAdding, setIsAdding] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -632,23 +632,17 @@ export default function UserPage({ id }: Props) {
   }, []);
 
   useEffect(() => {
-    if (isMounted.current) {
-      console.log("1");
-      if (id === undefined) {
-        console.log("2");
-        if (session && session?.user?.email !== previousEmail) {
-          console.log("3");
-          getWritten();
-          setPreviousEmail(session?.user?.email);
-        }
-      } else {
-        console.log("4");
+    if (!isMounted.current) {
+      isMounted.current = true;
+    }
+    if (id === undefined) {
+      if (session && session?.user?.email !== previousEmail) {
         getWritten();
         setPreviousEmail(session?.user?.email);
       }
     } else {
-      console.log("5");
-      isMounted.current = true;
+      getWritten();
+      setPreviousEmail(session?.user?.email);
     }
   }, [session]);
 
