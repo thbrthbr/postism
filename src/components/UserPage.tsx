@@ -738,9 +738,10 @@ export default function UserPage({ id }: Props) {
         ) : (
           <>
             {pathName === "folder" && (
-              <div className="m-8 w-full">
+              <div className="w-full">
                 {owner == session?.user?.email && (
                   <button
+                    className="m-8"
                     onClick={() => {
                       if (loadedParentId) {
                         if (loadedParentId !== "0") {
