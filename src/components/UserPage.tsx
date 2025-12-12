@@ -416,7 +416,14 @@ export default function UserPage({ id }: Props) {
       confirmButtonText: "확인",
       cancelButtonText: "취소",
     }).then(async (result) => {
-      if (result.isConfirmed) {
+      if (!result.isConfirmed) return;
+
+      // 💡 Optimistic UI - 일단 삭제된 것처럼 보이게
+      const prevDatas = [...datas];
+      const newDatas = datas.filter((item: any) => item.id !== id);
+      setDatas(newDatas);
+
+      try {
         const res = await fetch(
           `${process.env.NEXT_PUBLIC_SITE}/api/text/delete`,
           {
@@ -430,22 +437,23 @@ export default function UserPage({ id }: Props) {
           },
         );
         const final = await res.json();
-        if (final.message == "결과") {
-          if (final.data.status == "성공") {
-            const tempArr = [];
-            for (let i = 0; i < datas.length; i++) {
-              if (datas[i].id !== id) {
-                tempArr.push(datas[i]);
-              }
-            }
-            setDatas(tempArr);
-          } else {
-            toast({
-              title: "알림",
-              description: "삭제하실 수 없습니다",
-            });
-          }
+
+        if (!(final.message === "결과" && final.data.status === "성공")) {
+          // ❌ 실패 시 복원
+          setDatas(prevDatas);
+          toast({
+            title: "알림",
+            description: "삭제에 실패했습니다",
+          });
         }
+      } catch (error) {
+        // ❌ 네트워크 에러 시 복원
+        console.error(error);
+        setDatas(prevDatas);
+        toast({
+          title: "알림",
+          description: "삭제 요청 중 오류가 발생했습니다",
+        });
       }
     });
   };
@@ -459,7 +467,14 @@ export default function UserPage({ id }: Props) {
       confirmButtonText: "확인",
       cancelButtonText: "취소",
     }).then(async (result) => {
-      if (result.isConfirmed) {
+      if (!result.isConfirmed) return;
+
+      // 💡 Optimistic UI - 일단 삭제한 것처럼 표시
+      const prevFolders = [...folders];
+      const newFolders = folders.filter((item: any) => item.id !== id);
+      setFolders(newFolders);
+
+      try {
         const res = await fetch(
           `${process.env.NEXT_PUBLIC_SITE}/api/folder/delete`,
           {
@@ -472,22 +487,22 @@ export default function UserPage({ id }: Props) {
           },
         );
         const final = await res.json();
-        if (final.message == "결과") {
-          if (final.data.status === "성공") {
-            const temp = [];
-            for (let i = 0; i < folders.length; i++) {
-              if (folders[i].id !== id) {
-                temp.push(folders[i]);
-              }
-            }
-            setFolders(temp);
-          } else {
-            toast({
-              title: "알림",
-              description: "삭제하실 수 없습니다",
-            });
-          }
+
+        if (!(final.message === "결과" && final.data.status === "성공")) {
+          // ❌ 실패 시 복원
+          setFolders(prevFolders);
+          toast({
+            title: "알림",
+            description: "삭제에 실패했습니다",
+          });
         }
+      } catch (error) {
+        console.error(error);
+        setFolders(prevFolders);
+        toast({
+          title: "알림",
+          description: "삭제 요청 중 오류가 발생했습니다",
+        });
       }
     });
   };

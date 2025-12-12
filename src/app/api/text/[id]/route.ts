@@ -13,7 +13,6 @@ interface RouteContext {
 
 export async function GET(request: NextRequest, context: RouteContext) {
   const { id } = await context.params;
-  console.log(id);
   try {
     const fetchedSearchTexts = await getSpecificText(id);
 
