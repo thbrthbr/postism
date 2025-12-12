@@ -137,8 +137,6 @@ npm run dev
 
 ### 4. 공유/열람 및 뷰어모드
 
-![Image](https://github.com/user-attachments/assets/f7cb3c3e-34fa-4246-9d98-bb9abb445768)
-
 - 해당 텍스트의 고유주소 링크로 공유 가능
 - 해당 텍스트의 작성자가 아니면 수정 불가능 (뷰어모드)
 - 허용된 유저일 시 편집 권한 부여 (추가 예정)
