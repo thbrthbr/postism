@@ -754,26 +754,30 @@ export default function UserPage({ id }: Props) {
           </div>
         ) : (
           <>
-            {pathName === "folder" && (
-              <div className="w-full">
-                {owner == session?.user?.email && (
-                  <button
-                    className="m-8"
-                    onClick={() => {
-                      if (loadedParentId) {
-                        if (loadedParentId !== "0") {
-                          router.push(`/folder/${loadedParentId}`);
-                        } else {
-                          router.push("/");
-                        }
+            <div className="w-full">
+              {owner == session?.user?.email && (
+                <button
+                  className="m-8 cursor-default"
+                  onClick={() => {
+                    if (owner !== session?.user?.email) return;
+                    if (loadedParentId) {
+                      if (loadedParentId !== "0") {
+                        router.push(`/folder/${loadedParentId}`);
+                      } else {
+                        router.push("/");
                       }
-                    }}
-                  >
-                    <FaArrowLeft />
-                  </button>
-                )}
-              </div>
-            )}
+                    }
+                  }}
+                >
+                  {pathName === "folder" ? (
+                    <FaArrowLeft className="cursor-pointer" />
+                  ) : (
+                    ""
+                  )}
+                </button>
+              )}
+            </div>
+
             <div className="m-8 flex select-none flex-wrap justify-center gap-8 sm:justify-start">
               <AnimatePresence>
                 {folders.map((folder: any, idx: number) => {
