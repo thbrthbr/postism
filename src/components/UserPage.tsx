@@ -755,7 +755,7 @@ export default function UserPage({ id }: Props) {
         ) : (
           <>
             <div className="w-full">
-              {owner == session?.user?.email && (
+              {owner == session?.user?.email ? (
                 <button
                   className="m-8 cursor-default"
                   onClick={() => {
@@ -775,6 +775,8 @@ export default function UserPage({ id }: Props) {
                     ""
                   )}
                 </button>
+              ) : (
+                <button className="m-8 cursor-default"></button>
               )}
             </div>
 
