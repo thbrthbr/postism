@@ -77,6 +77,7 @@ export default function Text() {
   const [location, setLocation] = useState({ x: -1, y: -1 });
   const [isMobile, setIsMobile] = useState(false);
   const [showImages, setShowImages] = useState(false);
+  const [showTitle, setShowTitle] = useState("");
 
   // 🔹 PC에서 Monaco가 사용하는 내용
   const [content, setContent] = useState("");
@@ -192,6 +193,7 @@ export default function Text() {
     const res = await fetch(file.path);
     const text = await res.text();
 
+    setShowTitle(file.realTitle);
     setPath(file.title);
     setTxtTitle(file.realTitle);
     setParentId(file.parentId || "0");
@@ -409,6 +411,9 @@ export default function Text() {
         >
           <MdImage className="text-xl" />
         </button>
+      </div>
+      <div className="w-full text-center italic text-gray-500">
+        {showTitle}.txt
       </div>
 
       {/* 🔹 모바일이거나, 이미지 보기 모드일 때는 MarkdownImageEditor 사용 */}
