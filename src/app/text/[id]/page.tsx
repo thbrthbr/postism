@@ -78,9 +78,12 @@ export default function Text() {
   const [isMobile, setIsMobile] = useState(false);
   const [showImages, setShowImages] = useState(false);
   const [showTitle, setShowTitle] = useState("");
+  const [originalTitle, setOriginalTitle] = useState("");
+  const [id, setId] = useState("");
 
   // 🔹 PC에서 Monaco가 사용하는 내용
   const [content, setContent] = useState("");
+  const [modSwitch, setModSwitch] = useState(false);
 
   // 모바일 판별
   useEffect(() => {
@@ -193,7 +196,9 @@ export default function Text() {
     const res = await fetch(file.path);
     const text = await res.text();
 
+    setId(file.id);
     setShowTitle(file.realTitle);
+    setOriginalTitle(file.realTitle);
     setPath(file.title);
     setTxtTitle(file.realTitle);
     setParentId(file.parentId || "0");
@@ -335,6 +340,45 @@ export default function Text() {
     });
   };
 
+  const handleEditTitle = (
+    e: React.MouseEvent,
+    // inputId: string,
+  ) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setModSwitch(!modSwitch);
+
+    // setTimeout(() => {
+    //   const inputElement = document.querySelector(
+    //     `#${inputId}`,
+    //   ) as HTMLInputElement;
+    //   if (inputElement) {
+    //     inputElement.focus();
+    //   }
+    // }, 0);
+  };
+
+  const editTitle = async (id: string, newTitle: string) => {
+    if (newTitle.length <= 0) {
+      // alert("한 글자 이상이어야 합니다");
+      toast({
+        title: "알림",
+        description: "한 글자 이상이어야 합니다",
+      });
+      return;
+    }
+    setModSwitch(false);
+    await fetch(`${process.env.NEXT_PUBLIC_SITE}/api/text/edit-title`, {
+      method: "POST",
+      body: JSON.stringify({
+        id,
+        newTitle,
+        email: session?.user?.email,
+      }),
+      cache: "no-store",
+    });
+  };
+
   useEffect(() => {
     if (!markdownEditorRef.current) return;
     if (loading) return;
@@ -412,9 +456,51 @@ export default function Text() {
           <MdImage className="text-xl" />
         </button>
       </div>
-      <div className="w-full text-center italic text-gray-500">
-        {showTitle}.txt
-      </div>
+      {isMe ? (
+        modSwitch ? (
+          <input
+            autoFocus // 활성화 시 바로 포커스가 가도록 추가
+            className="bg-transparent text-center outline-none"
+            value={showTitle}
+            onChange={(e) => {
+              setShowTitle(e.target.value);
+            }}
+            // 포커스를 잃었을 때(외부 클릭 시) 실행
+            onBlur={() => {
+              if (showTitle !== originalTitle) {
+                editTitle(id, showTitle);
+                setOriginalTitle(showTitle);
+              }
+              setModSwitch(false);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                editTitle(id, showTitle);
+                setOriginalTitle(showTitle);
+                setModSwitch(false);
+              }
+              if (e.key === "Escape") {
+                // ESC 누를 시 취소 기능 추가 (선택 사항)
+                setShowTitle(originalTitle);
+                setModSwitch(false);
+              }
+            }}
+          />
+        ) : (
+          <button
+            onClick={() => {
+              setModSwitch(true);
+            }}
+            className="w-full text-center italic text-gray-500"
+          >
+            {showTitle}.txt
+          </button>
+        )
+      ) : (
+        <div className="w-full text-center italic text-gray-500">
+          {showTitle}.txt
+        </div>
+      )}
 
       {/* 🔹 모바일이거나, 이미지 보기 모드일 때는 MarkdownImageEditor 사용 */}
       {isMobile || showImages ? (
