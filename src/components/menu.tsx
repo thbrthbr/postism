@@ -2,11 +2,13 @@ import { signOut, useSession } from "next-auth/react";
 import ThemeSelect from "./ThemeSelect";
 import { TbFolderSymlink } from "react-icons/tb";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 interface Props {
   type?: string;
   location: Location;
   customFunctions?: any;
+  logined?: boolean;
 }
 
 interface Location {
@@ -34,7 +36,13 @@ interface Path {
   childrenArr: Path[];
 }
 
-export default function Menu({ type, location, customFunctions }: Props) {
+export default function Menu({
+  type,
+  location,
+  customFunctions,
+  logined,
+}: Props) {
+  const router = useRouter();
   const [pathSwitch, setPathSwitch] = useState(false);
   const { data: session } = useSession();
   const [allFolders, setAllFolders] = useState<Folder[]>([]);
@@ -141,7 +149,7 @@ export default function Menu({ type, location, customFunctions }: Props) {
       }}
       onClick={(e) => e.stopPropagation()}
     >
-      {!type && (
+      {!type && logined ? (
         <>
           <div className="flex">
             <ThemeSelect />
@@ -154,6 +162,21 @@ export default function Menu({ type, location, customFunctions }: Props) {
           </div>
           <div>
             <button onClick={() => signOut()}>로그아웃</button>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="flex">
+            <ThemeSelect />
+          </div>
+          <div>
+            <button
+              onClick={() => {
+                router.push("/");
+              }}
+            >
+              로그인
+            </button>
           </div>
         </>
       )}

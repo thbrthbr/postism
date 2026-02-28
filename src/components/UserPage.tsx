@@ -724,12 +724,19 @@ export default function UserPage({ id }: Props) {
       }}
     >
       {location.x !== -1 &&
-        (owner == session?.user?.email || id == undefined) && (
+        (owner == session?.user?.email || id == undefined ? (
           <Menu
             location={location}
+            logined={true}
             customFunctions={{ addText: uploadWritten, addFolder: addFolders }}
           />
-        )}
+        ) : (
+          <Menu
+            location={location}
+            logined={false}
+            customFunctions={{ addText: uploadWritten, addFolder: addFolders }}
+          />
+        ))}
       {location2.x !== -1 &&
         (owner == session?.user?.email || id == undefined) && (
           <Menu
@@ -787,7 +794,6 @@ export default function UserPage({ id }: Props) {
                   return (
                     <motion.div
                       className={`actioned z-40 flex w-[112px] select-none sm:w-[140px] ${folder.id !== "temp" && "cursor-pointer"} flex-col items-center`}
-                      // className={`z-40 flex w-[112px] select-none sm:w-[140px] ${data.id !== "temp" && "cursor-pointer"} flex-col items-center`}
                       key={folder.title}
                       onClick={() => {
                         if (folder.id !== "temp")
@@ -931,7 +937,6 @@ export default function UserPage({ id }: Props) {
                   return (
                     <motion.div
                       className={`actioned z-40 flex w-[112px] select-none sm:w-[140px] ${data.id !== "temp" && "cursor-pointer"} flex-col items-center`}
-                      // className={`z-40 flex w-[112px] select-none sm:w-[140px] ${data.id !== "temp" && "cursor-pointer"} flex-col items-center`}
                       key={data.title}
                       onClick={() => {
                         if (data.id !== "temp") router.push(`/text/${data.id}`);
