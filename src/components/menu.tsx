@@ -9,6 +9,7 @@ interface Props {
   location: Location;
   customFunctions?: any;
   logined?: boolean;
+  isMe?: boolean;
 }
 
 interface Location {
@@ -41,6 +42,7 @@ export default function Menu({
   location,
   customFunctions,
   logined,
+  isMe,
 }: Props) {
   const router = useRouter();
   const [pathSwitch, setPathSwitch] = useState(false);
@@ -149,7 +151,7 @@ export default function Menu({
       }}
       onClick={(e) => e.stopPropagation()}
     >
-      {!type && logined ? (
+      {!type && logined && (
         <>
           <div className="flex">
             <ThemeSelect />
@@ -164,22 +166,26 @@ export default function Menu({
             <button onClick={() => signOut()}>로그아웃</button>
           </div>
         </>
-      ) : (
+      )}
+      {!type && !logined && (
         <>
           <div className="flex">
             <ThemeSelect />
           </div>
           <div>
-            <button
-              onClick={() => {
-                router.push("/");
-              }}
-            >
-              로그인
-            </button>
+            {!logined && (
+              <button
+                onClick={() => {
+                  router.push("/");
+                }}
+              >
+                로그인
+              </button>
+            )}
           </div>
         </>
       )}
+
       {type === "onFile" && (
         <>
           <div>
