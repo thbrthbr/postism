@@ -82,12 +82,18 @@ const MarkdownImageEditor = forwardRef<
   const updateContentFromEditor = () => {
     if (!editorRef.current) return;
 
-    let text = "";
-    Array.from(editorRef.current.childNodes).forEach((node) => {
-      text += extractTextFromNode(node);
-    });
-
-    contentRef.current = text;
+    // 이미지 모드일 때는 기존처럼 재귀적으로 텍스트를 취합 (data-image-raw 때문)
+    if (showImages) {
+      let text = "";
+      Array.from(editorRef.current.childNodes).forEach((node) => {
+        text += extractTextFromNode(node);
+      });
+      // 모바일 div 찌꺼기 방지를 위해 연속된 줄바꿈 정규식 처리 (선택)
+      contentRef.current = text.replace(/\n\n+/g, "\n\n");
+    } else {
+      // 텍스트 모드일 때는 브라우저가 계산한 innerText를 그대로 사용 (가장 정확)
+      contentRef.current = editorRef.current.innerText;
+    }
   };
 
   const updateEditorContent = () => {
