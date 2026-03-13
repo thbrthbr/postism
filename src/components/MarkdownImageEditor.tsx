@@ -51,6 +51,7 @@ const MarkdownImageEditor = forwardRef<
   }));
 
   const extractTextFromNode = (node: Node): string => {
+    // 1. 텍스트 노드인 경우 (가장 기본)
     if (node.nodeType === Node.TEXT_NODE) {
       return node.textContent || "";
     }
@@ -58,17 +59,26 @@ const MarkdownImageEditor = forwardRef<
     if (node.nodeType === Node.ELEMENT_NODE) {
       const element = node as HTMLElement;
 
-      // 이미지 블록이면 마크다운 텍스트 반환
+      // 2. 이미지 블록 (우리가 설정한 data-image-raw 우선 추출)
       if (element.hasAttribute("data-image-raw")) {
         return element.getAttribute("data-image-raw") || "";
       }
 
-      // BR 태그는 줄바꿈
+      // 3. BR 태그
       if (element.tagName === "BR") {
         return "\n";
       }
 
-      // 나머지는 재귀적으로 처리
+      // 4. 그 외의 요소 (DIV, P 등)
+      // 모바일 브라우저가 생성한 블록 요소는 innerText를 통해
+      // 브라우저가 계산한 줄바꿈 값을 그대로 가져오는 것이 가장 정확합니다.
+      // 자식 중에 이미지가 없다면 innerText를 쓰고, 있다면 자식을 순회합니다.
+      const hasImage = element.querySelector("[data-image-raw]");
+      if (!hasImage) {
+        return element.innerText;
+      }
+
+      // 자식 중에 이미지가 섞여 있다면 재귀적으로 합침
       let text = "";
       Array.from(node.childNodes).forEach((child) => {
         text += extractTextFromNode(child);
@@ -83,28 +93,15 @@ const MarkdownImageEditor = forwardRef<
     if (!editorRef.current) return;
 
     let text = "";
-    const childNodes = Array.from(editorRef.current.childNodes);
-
-    childNodes.forEach((node) => {
-      if (node.nodeType === Node.ELEMENT_NODE) {
-        const element = node as HTMLElement;
-        // 1. 이미지 블록이면 숨겨둔 raw 텍스트 추출
-        if (element.hasAttribute("data-image-raw")) {
-          text += element.getAttribute("data-image-raw");
-        }
-        // 2. 그 외 일반 요소(div, br 등)는 브라우저가 해석한 innerText 사용
-        else {
-          text += element.innerText;
-        }
-      } else if (node.nodeType === Node.TEXT_NODE) {
-        // 3. 순수 텍스트 노드 처리
-        text += node.textContent;
-      }
+    // 최상위 노드들을 순회하며 텍스트 추출
+    Array.from(editorRef.current.childNodes).forEach((node) => {
+      text += extractTextFromNode(node);
     });
 
-    // 브라우저에 따라 끝에 불필요한 줄바꿈이 붙을 수 있으므로 정리
-    // (모바일은 마지막 div 뒤에 \n을 하나 더 붙이는 경우가 있음)
-    contentRef.current = text.replace(/\n{3,}/g, "\n\n"); // 엔터 3개 이상은 2개로 제한
+    // 모바일 특유의 중복 줄바꿈 및 끝부분 공백 정리
+    // 1. \r을 \n으로 통일
+    // 2. innerText가 가져오는 노드 끝의 불필요한 공백 제거
+    contentRef.current = text.replace(/\r\n/g, "\n").trimEnd();
   };
 
   const updateEditorContent = () => {
