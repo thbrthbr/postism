@@ -95,17 +95,50 @@ const MarkdownImageEditor = forwardRef<
     if (!editorRef.current) return;
 
     let text = "";
-    Array.from(editorRef.current.childNodes).forEach((node) => {
-      text += extractTextFromNode(node);
+    const nodes = Array.from(editorRef.current.childNodes);
+
+    nodes.forEach((node, index) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        // 텍스트 노드는 그대로 추가
+        text += node.textContent;
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as HTMLElement;
+
+        // 1. 이미지 블록 처리
+        if (el.hasAttribute("data-image-raw")) {
+          text += el.getAttribute("data-image-raw");
+        }
+        // 2. <br> 태그 처리
+        else if (el.tagName === "BR") {
+          text += "\n";
+        }
+        // 3. <div> 태그 (모바일 엔터) 처리
+        else if (el.tagName === "DIV") {
+          const divContent = el.innerText;
+
+          // 앞선 텍스트가 있고, 현재 div가 시작된다면 줄바꿈을 하나 추가해야 함
+          // (단, 이미 text 끝에 \n이 있다면 추가하지 않음)
+          if (text !== "" && !text.endsWith("\n")) {
+            text += "\n";
+          }
+
+          // <div><br></div> 형태인 경우 (빈 줄) \n 하나로 처리
+          if (
+            el.innerHTML === "<br>" ||
+            divContent === "\n" ||
+            divContent === ""
+          ) {
+            text += "\n";
+          } else {
+            // 내용이 있는 div인 경우 내용 추가 (innerText가 마지막 \n을 포함할 수 있으므로 trim)
+            text += divContent.replace(/\n$/, "");
+          }
+        }
+      }
     });
 
-    // 1. \r\n을 \n으로 통일
-    // 2. 연속된 3개 이상의 줄바꿈이 생기는 경우(중복 계산 방지) 2개로 압축
-    // 3. 마지막에 붙는 불필요한 줄바꿈 제거
-    contentRef.current = text
-      .replace(/\r\n/g, "\n")
-      .replace(/\n{3,}/g, "\n\n")
-      .trimEnd();
+    // 최종 결과물에서 3개 이상의 연속 줄바꿈 방지 및 마무리
+    contentRef.current = text.replace(/\n{3,}/g, "\n\n").trimEnd();
   };
 
   const updateEditorContent = () => {
