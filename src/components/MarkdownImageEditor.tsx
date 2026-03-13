@@ -51,7 +51,7 @@ const MarkdownImageEditor = forwardRef<
   }));
 
   const extractTextFromNode = (node: Node): string => {
-    // 1. 텍스트 노드인 경우 (가장 기본)
+    // 1. 텍스트 노드
     if (node.nodeType === Node.TEXT_NODE) {
       return node.textContent || "";
     }
@@ -59,30 +59,32 @@ const MarkdownImageEditor = forwardRef<
     if (node.nodeType === Node.ELEMENT_NODE) {
       const element = node as HTMLElement;
 
-      // 2. 이미지 블록 (우리가 설정한 data-image-raw 우선 추출)
+      // 2. 이미지 블록 (우선 처리)
       if (element.hasAttribute("data-image-raw")) {
         return element.getAttribute("data-image-raw") || "";
       }
 
-      // 3. BR 태그
+      // 3. BR 태그 (명시적 줄바꿈)
       if (element.tagName === "BR") {
         return "\n";
       }
 
-      // 4. 그 외의 요소 (DIV, P 등)
-      // 모바일 브라우저가 생성한 블록 요소는 innerText를 통해
-      // 브라우저가 계산한 줄바꿈 값을 그대로 가져오는 것이 가장 정확합니다.
-      // 자식 중에 이미지가 없다면 innerText를 쓰고, 있다면 자식을 순회합니다.
-      const hasImage = element.querySelector("[data-image-raw]");
-      if (!hasImage) {
-        return element.innerText;
-      }
-
-      // 자식 중에 이미지가 섞여 있다면 재귀적으로 합침
+      // 4. 블록 요소 (DIV, P 등) 처리
       let text = "";
       Array.from(node.childNodes).forEach((child) => {
         text += extractTextFromNode(child);
       });
+
+      // ⭐ 핵심 로직: 모바일의 <div>내용</div> 구조 대응
+      // div가 비어있거나 안에 <br>만 있는 경우(빈 줄) \n 반환
+      if (element.tagName === "DIV") {
+        if (text === "" || text === "\n") {
+          return "\n";
+        }
+        // 내용이 있는 div라면 끝에 줄바꿈을 붙여서 다음 줄과 분리
+        return text.endsWith("\n") ? text : text + "\n";
+      }
+
       return text;
     }
 
@@ -93,40 +95,17 @@ const MarkdownImageEditor = forwardRef<
     if (!editorRef.current) return;
 
     let text = "";
-    const nodes = Array.from(editorRef.current.childNodes);
-
-    nodes.forEach((node) => {
-      if (node.nodeType === Node.ELEMENT_NODE) {
-        const element = node as HTMLElement;
-
-        // 1. 이미지 블록인 경우
-        if (element.hasAttribute("data-image-raw")) {
-          text += element.getAttribute("data-image-raw");
-        }
-        // 2. 줄바꿈(BR) 태그인 경우
-        else if (element.tagName === "BR") {
-          text += "\n";
-        }
-        // 3. 일반 블록(DIV, P 등)인 경우
-        else {
-          // innerText는 해당 요소 내부의 줄바꿈을 포함합니다.
-          // 다만 모바일 div는 앞뒤로 줄바꿈을 동반하므로 trim 처리 후 하나만 붙여줍니다.
-          const content = element.innerText;
-          if (content === "\n" || content === "") {
-            text += "\n";
-          } else {
-            // 이미 \n이 포함되어 있다면 중복 방지
-            text += content.endsWith("\n") ? content : content + "\n";
-          }
-        }
-      } else if (node.nodeType === Node.TEXT_NODE) {
-        // 4. 순수 텍스트 노드
-        text += node.textContent;
-      }
+    Array.from(editorRef.current.childNodes).forEach((node) => {
+      text += extractTextFromNode(node);
     });
 
-    // 모바일 브라우저가 마지막에 강제로 붙이는 연속 줄바꿈 및 공백 정리
-    contentRef.current = text.replace(/\n{3,}/g, "\n\n").trimEnd();
+    // 1. \r\n을 \n으로 통일
+    // 2. 연속된 3개 이상의 줄바꿈이 생기는 경우(중복 계산 방지) 2개로 압축
+    // 3. 마지막에 붙는 불필요한 줄바꿈 제거
+    contentRef.current = text
+      .replace(/\r\n/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trimEnd();
   };
 
   const updateEditorContent = () => {
