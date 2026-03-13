@@ -93,15 +93,40 @@ const MarkdownImageEditor = forwardRef<
     if (!editorRef.current) return;
 
     let text = "";
-    // 최상위 노드들을 순회하며 텍스트 추출
-    Array.from(editorRef.current.childNodes).forEach((node) => {
-      text += extractTextFromNode(node);
+    const nodes = Array.from(editorRef.current.childNodes);
+
+    nodes.forEach((node) => {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const element = node as HTMLElement;
+
+        // 1. 이미지 블록인 경우
+        if (element.hasAttribute("data-image-raw")) {
+          text += element.getAttribute("data-image-raw");
+        }
+        // 2. 줄바꿈(BR) 태그인 경우
+        else if (element.tagName === "BR") {
+          text += "\n";
+        }
+        // 3. 일반 블록(DIV, P 등)인 경우
+        else {
+          // innerText는 해당 요소 내부의 줄바꿈을 포함합니다.
+          // 다만 모바일 div는 앞뒤로 줄바꿈을 동반하므로 trim 처리 후 하나만 붙여줍니다.
+          const content = element.innerText;
+          if (content === "\n" || content === "") {
+            text += "\n";
+          } else {
+            // 이미 \n이 포함되어 있다면 중복 방지
+            text += content.endsWith("\n") ? content : content + "\n";
+          }
+        }
+      } else if (node.nodeType === Node.TEXT_NODE) {
+        // 4. 순수 텍스트 노드
+        text += node.textContent;
+      }
     });
 
-    // 모바일 특유의 중복 줄바꿈 및 끝부분 공백 정리
-    // 1. \r을 \n으로 통일
-    // 2. innerText가 가져오는 노드 끝의 불필요한 공백 제거
-    contentRef.current = text.replace(/\r\n/g, "\n").trimEnd();
+    // 모바일 브라우저가 마지막에 강제로 붙이는 연속 줄바꿈 및 공백 정리
+    contentRef.current = text.replace(/\n{3,}/g, "\n\n").trimEnd();
   };
 
   const updateEditorContent = () => {
