@@ -82,18 +82,29 @@ const MarkdownImageEditor = forwardRef<
   const updateContentFromEditor = () => {
     if (!editorRef.current) return;
 
-    // 이미지 모드일 때는 기존처럼 재귀적으로 텍스트를 취합 (data-image-raw 때문)
-    if (showImages) {
-      let text = "";
-      Array.from(editorRef.current.childNodes).forEach((node) => {
-        text += extractTextFromNode(node);
-      });
-      // 모바일 div 찌꺼기 방지를 위해 연속된 줄바꿈 정규식 처리 (선택)
-      contentRef.current = text.replace(/\n\n+/g, "\n\n");
-    } else {
-      // 텍스트 모드일 때는 브라우저가 계산한 innerText를 그대로 사용 (가장 정확)
-      contentRef.current = editorRef.current.innerText;
-    }
+    let text = "";
+    const childNodes = Array.from(editorRef.current.childNodes);
+
+    childNodes.forEach((node) => {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const element = node as HTMLElement;
+        // 1. 이미지 블록이면 숨겨둔 raw 텍스트 추출
+        if (element.hasAttribute("data-image-raw")) {
+          text += element.getAttribute("data-image-raw");
+        }
+        // 2. 그 외 일반 요소(div, br 등)는 브라우저가 해석한 innerText 사용
+        else {
+          text += element.innerText;
+        }
+      } else if (node.nodeType === Node.TEXT_NODE) {
+        // 3. 순수 텍스트 노드 처리
+        text += node.textContent;
+      }
+    });
+
+    // 브라우저에 따라 끝에 불필요한 줄바꿈이 붙을 수 있으므로 정리
+    // (모바일은 마지막 div 뒤에 \n을 하나 더 붙이는 경우가 있음)
+    contentRef.current = text.replace(/\n{3,}/g, "\n\n"); // 엔터 3개 이상은 2개로 제한
   };
 
   const updateEditorContent = () => {
