@@ -71,29 +71,6 @@ export default function UserPage({ id }: Props) {
   const [splitContent, setSplitContent] = useState("");
   const [isSplitLoading, setIsSplitLoading] = useState(false);
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
-  const [touchDragPreview, setTouchDragPreview] = useState<{
-    id: string;
-    title: string;
-    parentId: string;
-    x: number;
-    y: number;
-  } | null>(null);
-
-  const [touchDropTarget, setTouchDropTarget] = useState<{
-    id: string;
-    title: string;
-  } | null>(null);
-
-  const touchDragStartRef = useRef<{
-    pointerId: number;
-    startX: number;
-    startY: number;
-    fileId: string;
-    title: string;
-    parentId: string;
-  } | null>(null);
-
-  const suppressClickRef = useRef(false);
 
   const openSplitView = () => {
     if (location2.fileType !== "file") {
@@ -721,53 +698,10 @@ export default function UserPage({ id }: Props) {
         description: "파일 이동 중 오류가 발생했습니다",
       });
     } finally {
-      touchDragStartRef.current = null;
-      setTouchDragPreview(null);
-      setTouchDropTarget(null);
       setDragOverFolderId(null);
       setIsDraggingFile(false);
       setShowDropZone(false);
     }
-  };
-
-  const resetTouchDragState = () => {
-    touchDragStartRef.current = null;
-    setTouchDragPreview(null);
-    setTouchDropTarget(null);
-    setDragOverFolderId(null);
-    setIsDraggingFile(false);
-    setShowDropZone(false);
-  };
-
-  const updateTouchDropTarget = (clientX: number, clientY: number) => {
-    const element = document.elementFromPoint(
-      clientX,
-      clientY,
-    ) as HTMLElement | null;
-    const folderElement = element?.closest(
-      "[data-folder-drop-id]",
-    ) as HTMLElement | null;
-
-    if (!folderElement) {
-      setDragOverFolderId(null);
-      setTouchDropTarget(null);
-      return;
-    }
-
-    const folderId = folderElement.dataset.folderDropId ?? "";
-    const folderTitle = folderElement.dataset.folderDropTitle ?? "";
-
-    if (!folderId) {
-      setDragOverFolderId(null);
-      setTouchDropTarget(null);
-      return;
-    }
-
-    setDragOverFolderId(folderId);
-    setTouchDropTarget({
-      id: folderId,
-      title: folderTitle,
-    });
   };
 
   const getParentId = async () => {
@@ -1103,10 +1037,6 @@ export default function UserPage({ id }: Props) {
                     const folderInputId = folder.title.replace(":", "-");
                     return (
                       <motion.div
-                        data-folder-drop-id={
-                          folder.id !== "temp" ? folder.id : ""
-                        }
-                        data-folder-drop-title={folder.realTitle}
                         className={`actioned z-40 flex w-[112px] select-none sm:w-[140px] ${
                           folder.id !== "temp" && "cursor-pointer"
                         } flex-col items-center`}
@@ -1265,7 +1195,6 @@ export default function UserPage({ id }: Props) {
                           {modSwitch == (idx + 1) * -1 * 1000 ? (
                             <div>
                               <input
-                                data-no-touch-drag="true"
                                 id={folderInputId}
                                 className="w-full border-b-2 border-blue-400 text-center text-black outline-none"
                                 value={folder.realTitle}
@@ -1357,19 +1286,11 @@ export default function UserPage({ id }: Props) {
                         }}
                         onDragEnd={(e: any) => {
                           e.stopPropagation();
-                          touchDragStartRef.current = null;
-                          setTouchDragPreview(null);
-                          setTouchDropTarget(null);
                           setIsDraggingFile(false);
                           setShowDropZone(false);
                           setDragOverFolderId(null);
                         }}
                         onClick={() => {
-                          if (suppressClickRef.current) {
-                            suppressClickRef.current = false;
-                            return;
-                          }
-
                           if (data.id !== "temp" && !isSplitMode) {
                             router.push(`/text/${data.id}`);
                           } else if (data.id !== "temp" && isSplitMode) {
@@ -1378,105 +1299,6 @@ export default function UserPage({ id }: Props) {
                               title: data.realTitle,
                             });
                           }
-                        }}
-                        onPointerDown={(e) => {
-                          if (e.pointerType === "mouse") return;
-                          if (data.id === "temp") return;
-
-                          const target = e.target as HTMLElement;
-                          if (target.closest("[data-no-touch-drag='true']"))
-                            return;
-
-                          touchDragStartRef.current = {
-                            pointerId: e.pointerId,
-                            startX: e.clientX,
-                            startY: e.clientY,
-                            fileId: data.id,
-                            title: data.realTitle,
-                            parentId: data.parentId ?? "0",
-                          };
-
-                          suppressClickRef.current = false;
-                          (e.currentTarget as HTMLElement).setPointerCapture?.(
-                            e.pointerId,
-                          );
-                        }}
-                        onPointerMove={(e) => {
-                          if (e.pointerType === "mouse") return;
-
-                          const touchDragStart = touchDragStartRef.current;
-                          if (!touchDragStart) return;
-                          if (touchDragStart.pointerId !== e.pointerId) return;
-
-                          const distance = Math.hypot(
-                            e.clientX - touchDragStart.startX,
-                            e.clientY - touchDragStart.startY,
-                          );
-
-                          if (!touchDragPreview && distance < 12) return;
-
-                          if (!touchDragPreview) {
-                            suppressClickRef.current = true;
-                            setIsDraggingFile(true);
-                            setShowDropZone(false);
-                            setTouchDragPreview({
-                              id: touchDragStart.fileId,
-                              title: touchDragStart.title,
-                              parentId: touchDragStart.parentId,
-                              x: e.clientX,
-                              y: e.clientY,
-                            });
-                          } else {
-                            setTouchDragPreview((prev) =>
-                              prev
-                                ? {
-                                    ...prev,
-                                    x: e.clientX,
-                                    y: e.clientY,
-                                  }
-                                : prev,
-                            );
-                          }
-
-                          updateTouchDropTarget(e.clientX, e.clientY);
-                        }}
-                        onPointerUp={async (e) => {
-                          if (e.pointerType === "mouse") return;
-
-                          const touchDragStart = touchDragStartRef.current;
-                          if (!touchDragStart) return;
-                          if (touchDragStart.pointerId !== e.pointerId) return;
-
-                          (
-                            e.currentTarget as HTMLElement
-                          ).releasePointerCapture?.(e.pointerId);
-
-                          const draggedFile = touchDragPreview;
-                          const targetFolder = touchDropTarget;
-
-                          if (draggedFile && targetFolder?.id) {
-                            await moveFileToFolder(
-                              draggedFile.id,
-                              draggedFile.title,
-                              draggedFile.parentId,
-                              targetFolder.id,
-                              targetFolder.title,
-                            );
-                          } else {
-                            resetTouchDragState();
-                          }
-                        }}
-                        onPointerCancel={(e) => {
-                          if (e.pointerType === "mouse") return;
-
-                          const touchDragStart = touchDragStartRef.current;
-                          if (!touchDragStart) return;
-                          if (touchDragStart.pointerId !== e.pointerId) return;
-
-                          (
-                            e.currentTarget as HTMLElement
-                          ).releasePointerCapture?.(e.pointerId);
-                          resetTouchDragState();
                         }}
                         layout
                         initial={{ opacity: 0, y: -20 }}
@@ -1509,10 +1331,7 @@ export default function UserPage({ id }: Props) {
                         >
                           {data.user === session?.user?.email && (
                             <>
-                              <div
-                                className="absolute left-1 top-1"
-                                data-no-touch-drag="true"
-                              >
+                              <div className="absolute left-1 top-1">
                                 <Heart
                                   data={data}
                                   liked={data.liked}
@@ -1521,7 +1340,6 @@ export default function UserPage({ id }: Props) {
                               </div>
                               <div
                                 className="absolute end-0 p-1"
-                                data-no-touch-drag="true"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   deleteWritten(data.id, data.title);
@@ -1560,7 +1378,6 @@ export default function UserPage({ id }: Props) {
                           {modSwitch == idx ? (
                             <div>
                               <input
-                                data-no-touch-drag="true"
                                 id={inputId}
                                 className="w-full border-b-2 border-blue-400 text-center text-black outline-none"
                                 value={data.realTitle}
@@ -1632,28 +1449,6 @@ export default function UserPage({ id }: Props) {
             >
               이곳에 놓아서 열기
             </div>
-          </div>
-        </div>
-      )}
-
-      {touchDragPreview && (
-        <div
-          className="pointer-events-none fixed z-[10001] -translate-x-1/2 -translate-y-1/2"
-          style={{
-            left: touchDragPreview.x,
-            top: touchDragPreview.y,
-          }}
-        >
-          <div
-            className="rounded-md border-2 px-4 py-2 text-sm font-bold shadow-2xl"
-            style={{
-              backgroundColor: "var(--color-bg-primary)",
-              color: "var(--color-primary)",
-              borderColor: "var(--color-customBorder)",
-              opacity: 0.95,
-            }}
-          >
-            {touchDragPreview.title}
           </div>
         </div>
       )}
