@@ -58,6 +58,18 @@ export default function UserPage({ id }: Props) {
   const [loadedParentId, setLoadedParentId] = useState("");
   const router = useRouter();
 
+  const touchDragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    dragging: boolean;
+    fileId: string;
+    title: string;
+    parentId: string;
+  } | null>(null);
+
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+
   const uploadWritten = async () => {
     try {
       const key = Date.now();
@@ -190,18 +202,17 @@ export default function UserPage({ id }: Props) {
   };
 
   const addWritten = async () => {
-    if (isAdding) return; // isAdding이 true이면 함수 실행을 막음
+    if (isAdding) return;
 
     setIsAdding(true);
     const key = Date.now();
     const file = new Blob([""], { type: "text/plain;charset=utf-8" });
     const fileName = `untitled-${dataCount[dataCount.length - 1]}`;
 
-    // Optimistic UI - UI에 새 데이터 먼저 추가
     const optimisticData = {
-      id: "temp", // 서버에서 id를 받아오는 것으로 변경 가능
+      id: "temp",
       title: `${fileName}:${key}`,
-      path: "", // URL을 비워두고 나중에 업데이트
+      path: "",
       order: key,
       realTitle: fileName,
       user: session?.user?.email,
@@ -258,7 +269,6 @@ export default function UserPage({ id }: Props) {
       }
     } catch (error) {
       console.error("Error adding text:", error);
-      // alert("Failed to upload text");
       toast({
         title: "알림",
         description: "업로드에 실패하셨습니다",
@@ -267,7 +277,7 @@ export default function UserPage({ id }: Props) {
         prevDatas.filter((item: any) => item.id !== optimisticData.id),
       );
     } finally {
-      setIsAdding(false); // 작업 완료 후 로딩 상태 종료
+      setIsAdding(false);
     }
   };
 
@@ -284,26 +294,16 @@ export default function UserPage({ id }: Props) {
       .sort((x: any, y: any) => x.order - y.order)
       .reverse();
 
-    // 1. `liked`가 true인 것들을 맨 앞에 배치하고, `order`에 따라 정렬
     const likedItems = sorted
       .filter((item: any) => item.liked === true)
       .sort((x: any, y: any) => x.order - y.order);
-    // 2. `liked`가 false인 것들은 그대로 두기
     const unlikedItems = sorted.filter((item: any) => item.liked !== true);
-    // 3. 두 그룹을 합침
     const finalSorted = [...likedItems.reverse(), ...unlikedItems];
     setFolders(finalSorted);
     setFoldersCount([finalSorted.length - 1]);
   };
 
   const getWritten = async () => {
-    // if (!session) {
-    //   toast({
-    //     title: "알림",
-    //     description: "다시 로그인 해주세요",
-    //   });
-    //   router.push("/");
-    // }
     await getFolders();
     const result = await fetch(
       `${process.env.NEXT_PUBLIC_SITE}/api/text?id=${session?.user?.email}:${id || "0"}`,
@@ -317,13 +317,10 @@ export default function UserPage({ id }: Props) {
       .sort((x: any, y: any) => x.order - y.order)
       .reverse();
 
-    // 1. `liked`가 true인 것들을 맨 앞에 배치하고, `order`에 따라 정렬
     const likedItems = sorted
       .filter((item: any) => item.liked === true)
       .sort((x: any, y: any) => x.order - y.order);
-    // 2. `liked`가 false인 것들은 그대로 두기
     const unlikedItems = sorted.filter((item: any) => item.liked !== true);
-    // 3. 두 그룹을 합침
     const finalSorted = [...likedItems.reverse(), ...unlikedItems];
     setDatas(finalSorted);
     setDataCount([finalSorted.length]);
@@ -331,13 +328,12 @@ export default function UserPage({ id }: Props) {
   };
 
   const addFolders = async () => {
-    if (isAdding) return; // isAdding이 true이면 함수 실행을 막음
+    if (isAdding) return;
 
     setIsAdding(true);
     const key = Date.now();
     const fileName = `untitled-${foldersCount[foldersCount.length - 1] + 1}`;
 
-    // Optimistic UI - UI에 새 데이터 먼저 추가
     const optimisticData = {
       id: "temp",
       title: `${fileName}:${key}`,
@@ -403,7 +399,7 @@ export default function UserPage({ id }: Props) {
         x: -1,
         y: -1,
       });
-      setIsAdding(false); // 작업 완료 후 로딩 상태 종료
+      setIsAdding(false);
     }
   };
 
@@ -418,7 +414,6 @@ export default function UserPage({ id }: Props) {
     }).then(async (result) => {
       if (!result.isConfirmed) return;
 
-      // 💡 Optimistic UI - 일단 삭제된 것처럼 보이게
       const prevDatas = [...datas];
       const newDatas = datas.filter((item: any) => item.id !== id);
       setDatas(newDatas);
@@ -439,7 +434,6 @@ export default function UserPage({ id }: Props) {
         const final = await res.json();
 
         if (!(final.message === "결과" && final.data.status === "성공")) {
-          // ❌ 실패 시 복원
           setDatas(prevDatas);
           toast({
             title: "알림",
@@ -447,7 +441,6 @@ export default function UserPage({ id }: Props) {
           });
         }
       } catch (error) {
-        // ❌ 네트워크 에러 시 복원
         console.error(error);
         setDatas(prevDatas);
         toast({
@@ -469,7 +462,6 @@ export default function UserPage({ id }: Props) {
     }).then(async (result) => {
       if (!result.isConfirmed) return;
 
-      // 💡 Optimistic UI - 일단 삭제한 것처럼 표시
       const prevFolders = [...folders];
       const newFolders = folders.filter((item: any) => item.id !== id);
       setFolders(newFolders);
@@ -489,7 +481,6 @@ export default function UserPage({ id }: Props) {
         const final = await res.json();
 
         if (!(final.message === "결과" && final.data.status === "성공")) {
-          // ❌ 실패 시 복원
           setFolders(prevFolders);
           toast({
             title: "알림",
@@ -509,7 +500,6 @@ export default function UserPage({ id }: Props) {
 
   const editTitle = async (id: string, newTitle: string) => {
     if (newTitle.length <= 0) {
-      // alert("한 글자 이상이어야 합니다");
       toast({
         title: "알림",
         description: "한 글자 이상이어야 합니다",
@@ -619,6 +609,15 @@ export default function UserPage({ id }: Props) {
     }
   };
 
+  const moveFileToFolder = async (
+    fileId: string,
+    title: string,
+    parentId: string,
+    folderId: string,
+  ) => {
+    await editPath(fileId, "file", folderId, parentId);
+  };
+
   const getParentId = async () => {
     const result = await fetch(`/api/folder/${id}`, {
       method: "GET",
@@ -683,7 +682,9 @@ export default function UserPage({ id }: Props) {
       }}
       onDrop={(e) => {
         e.preventDefault();
-        dropUploadWritten(e.dataTransfer.files[0]);
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+          dropUploadWritten(e.dataTransfer.files[0]);
+        }
       }}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -793,6 +794,7 @@ export default function UserPage({ id }: Props) {
                   const folderInputId = folder.title.replace(":", "-");
                   return (
                     <motion.div
+                      data-folder-id={folder.id}
                       className={`actioned z-40 flex w-[112px] select-none sm:w-[140px] ${folder.id !== "temp" && "cursor-pointer"} flex-col items-center`}
                       key={folder.title}
                       onClick={() => {
@@ -804,6 +806,33 @@ export default function UserPage({ id }: Props) {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 20 }}
                       transition={{ duration: 0.8 }}
+                      onDragOver={(e: React.DragEvent<HTMLDivElement>) => {
+                        e.preventDefault();
+                        if (folder.id === "temp") return;
+                        setDragOverFolderId(folder.id);
+                      }}
+                      onDragLeave={() => {
+                        setDragOverFolderId(null);
+                      }}
+                      onDrop={(e: React.DragEvent<HTMLDivElement>) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        if (folder.id === "temp") {
+                          setDragOverFolderId(null);
+                          return;
+                        }
+
+                        const fileId = e.dataTransfer.getData("file-id");
+                        const title = e.dataTransfer.getData("file-title");
+                        const parentId = e.dataTransfer.getData("file-parent");
+
+                        if (fileId) {
+                          moveFileToFolder(fileId, title, parentId, folder.id);
+                        }
+
+                        setDragOverFolderId(null);
+                      }}
                       onContextMenu={(e) => {
                         e.stopPropagation();
                         e.preventDefault();
@@ -822,8 +851,11 @@ export default function UserPage({ id }: Props) {
                     >
                       <div
                         style={{
-                          backgroundColor: "var(--color-bg-primary)",
-                          transition: "background-color 0.7s ease",
+                          backgroundColor:
+                            dragOverFolderId === folder.id
+                              ? "rgba(0,0,255,0.1)"
+                              : "var(--color-bg-primary)",
+                          transition: "background-color 0.2s ease",
                         }}
                         className="relative h-[160px] w-[112px] rounded-md border-2 border-customBorder sm:h-[200px] sm:w-[140px]"
                       >
@@ -938,6 +970,84 @@ export default function UserPage({ id }: Props) {
                     <motion.div
                       className={`actioned z-40 flex w-[112px] select-none sm:w-[140px] ${data.id !== "temp" && "cursor-pointer"} flex-col items-center`}
                       key={data.title}
+                      onPointerDown={(e) => {
+                        if (e.pointerType === "mouse") return;
+                        if (data.id === "temp") return;
+
+                        touchDragRef.current = {
+                          pointerId: e.pointerId,
+                          startX: e.clientX,
+                          startY: e.clientY,
+                          dragging: false,
+                          fileId: data.id,
+                          title: data.realTitle,
+                          parentId: data.parentId,
+                        };
+                      }}
+                      onPointerMove={(e) => {
+                        const t = touchDragRef.current;
+                        if (!t) return;
+                        if (e.pointerType === "mouse") return;
+                        if (t.pointerId !== e.pointerId) return;
+
+                        const dist = Math.hypot(
+                          e.clientX - t.startX,
+                          e.clientY - t.startY,
+                        );
+
+                        if (!t.dragging && dist > 15) {
+                          t.dragging = true;
+                        }
+
+                        if (!t.dragging) return;
+
+                        const el = document.elementFromPoint(
+                          e.clientX,
+                          e.clientY,
+                        ) as HTMLElement | null;
+                        const folderEl = el?.closest(
+                          "[data-folder-id]",
+                        ) as HTMLElement | null;
+
+                        if (folderEl?.dataset.folderId) {
+                          setDragOverFolderId(folderEl.dataset.folderId);
+                        } else {
+                          setDragOverFolderId(null);
+                        }
+                      }}
+                      onPointerUp={(e) => {
+                        const t = touchDragRef.current;
+                        if (!t) return;
+                        if (e.pointerType === "mouse") return;
+                        if (t.pointerId !== e.pointerId) return;
+
+                        if (t.dragging) {
+                          const el = document.elementFromPoint(
+                            e.clientX,
+                            e.clientY,
+                          ) as HTMLElement | null;
+                          const folderEl = el?.closest(
+                            "[data-folder-id]",
+                          ) as HTMLElement | null;
+
+                          const folderId = folderEl?.dataset.folderId;
+                          if (folderId) {
+                            moveFileToFolder(
+                              t.fileId,
+                              t.title,
+                              t.parentId,
+                              folderId,
+                            );
+                          }
+                        }
+
+                        touchDragRef.current = null;
+                        setDragOverFolderId(null);
+                      }}
+                      onPointerCancel={() => {
+                        touchDragRef.current = null;
+                        setDragOverFolderId(null);
+                      }}
                       onClick={() => {
                         if (data.id !== "temp") router.push(`/text/${data.id}`);
                       }}
@@ -963,6 +1073,16 @@ export default function UserPage({ id }: Props) {
                       }}
                     >
                       <div
+                        draggable={data.id !== "temp"}
+                        onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
+                          if (data.id === "temp") return;
+                          e.dataTransfer.setData("file-id", data.id);
+                          e.dataTransfer.setData("file-title", data.realTitle);
+                          e.dataTransfer.setData("file-parent", data.parentId);
+                        }}
+                        onDragEnd={(e: React.DragEvent<HTMLDivElement>) => {
+                          setDragOverFolderId(null);
+                        }}
                         style={{
                           backgroundColor: "var(--color-bg-primary)",
                           transition: "background-color 0.7s ease",
