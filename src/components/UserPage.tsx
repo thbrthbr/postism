@@ -5,7 +5,7 @@ import { storage } from "../firebase/firebaseConfig";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { usePathname, useRouter } from "next/navigation";
 import { IoIosClose } from "react-icons/io";
-import { FaArrowLeft } from "react-icons/fa";
+import { FaArrowLeft, FaRegFolderOpen } from "react-icons/fa";
 import Menu from "@/components/menu";
 import Spinner from "@/components/spinner";
 import SpinnerMini from "./spinner-mini";
@@ -13,25 +13,26 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useSession } from "next-auth/react";
 import { useToast } from "@/hooks/use-toast";
 import Swal from "sweetalert2";
-import { FaRegFolderOpen } from "react-icons/fa";
 import Heart from "@/components/Heart";
 
 interface Props {
   id?: string;
-  // parentId?: String;
 }
 
 export default function UserPage({ id }: Props) {
   const { toast } = useToast();
   const pathName = usePathname().split("/")[1];
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
   const isMounted = useRef(false);
+
   const [isAdding, setIsAdding] = useState(false);
   const [loading, setLoading] = useState(true);
+
   const [location, setLocation] = useState({
     x: -1,
     y: -1,
   });
+
   const [location2, setLocation2] = useState({
     x: -1,
     y: -1,
@@ -39,6 +40,7 @@ export default function UserPage({ id }: Props) {
     fileType: "",
     parentId: "",
   });
+
   const [modSwitch, setModSwitch] = useState(-1);
   const [previousEmail, setPreviousEmail] = useState<string | null | undefined>(
     null,
@@ -56,12 +58,25 @@ export default function UserPage({ id }: Props) {
     type: "",
   });
   const [loadedParentId, setLoadedParentId] = useState("");
+
   const [draggingFileId, setDraggingFileId] = useState<string | null>(null);
+  const [draggingFolderId, setDraggingFolderId] = useState<string | null>(null);
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
   const [touchGhost, setTouchGhost] = useState<{
     title: string;
     x: number;
     y: number;
   } | null>(null);
+
+  const [isPreviewZoneActive, setIsPreviewZoneActive] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [previewTarget, setPreviewTarget] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
+  const [previewContent, setPreviewContent] = useState("");
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [isDesktopFileDragging, setIsDesktopFileDragging] = useState(false);
 
   const router = useRouter();
 
@@ -76,8 +91,24 @@ export default function UserPage({ id }: Props) {
     parentId: string;
   } | null>(null);
 
-  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
-  const [draggingFolderId, setDraggingFolderId] = useState<string | null>(null);
+  const isAnyDragging = Boolean(
+    draggingFileId || draggingFolderId || touchGhost || isDesktopFileDragging,
+  );
+  const isFileDragging = Boolean(draggingFileId || isDesktopFileDragging);
+
+  const resetDragVisualState = () => {
+    setDraggingFileId(null);
+    setDraggingFolderId(null);
+    setTouchGhost(null);
+    setDragOverFolderId(null);
+    setIsPreviewZoneActive(false);
+  };
+
+  const openPreviewFile = (fileId: string, title: string) => {
+    setPreviewTarget({ id: fileId, title });
+    setIsPreviewMode(true);
+    resetDragVisualState();
+  };
 
   const uploadWritten = async () => {
     try {
@@ -560,7 +591,7 @@ export default function UserPage({ id }: Props) {
   };
 
   const editPath = async (
-    id: string,
+    itemId: string,
     type: string,
     newPath: string,
     parentId: string,
@@ -577,7 +608,7 @@ export default function UserPage({ id }: Props) {
       {
         method: "POST",
         body: JSON.stringify({
-          id,
+          id: itemId,
           type,
           newPath,
           email: session?.user?.email,
@@ -590,7 +621,7 @@ export default function UserPage({ id }: Props) {
       if (type === "folder") {
         const temp = [];
         for (let i = 0; i < folders.length; i++) {
-          if (folders[i].id !== id) {
+          if (folders[i].id !== itemId) {
             temp.push(folders[i]);
           }
         }
@@ -598,7 +629,7 @@ export default function UserPage({ id }: Props) {
       } else {
         const tempArr = [];
         for (let i = 0; i < datas.length; i++) {
-          if (datas[i].id !== id) {
+          if (datas[i].id !== itemId) {
             tempArr.push(datas[i]);
           }
         }
@@ -649,10 +680,6 @@ export default function UserPage({ id }: Props) {
     targetFolderTitle?: string,
   ) => {
     if (folderId === targetFolderId) {
-      toast({
-        title: "알림",
-        description: "자기 자신 안으로는 이동할 수 없습니다",
-      });
       return;
     }
 
@@ -682,8 +709,8 @@ export default function UserPage({ id }: Props) {
     setOwner(final.data[0].user);
   };
 
-  const changePosition = (datas: any) => {
-    const tempData = datas.slice(0);
+  const changePosition = (list: any) => {
+    const tempData = list.slice(0);
     tempData.map((data: any) => {
       if (data.id == testSwitch.id) {
         data.liked = testSwitch.changeTo;
@@ -693,8 +720,7 @@ export default function UserPage({ id }: Props) {
       .filter((item: any) => item.liked === true)
       .sort((x: any, y: any) => x.order - y.order);
     const unlikedItems = tempData.filter((item: any) => item.liked !== true);
-    const finalSorted = [...likedItems.reverse(), ...unlikedItems];
-    return finalSorted;
+    return [...likedItems.reverse(), ...unlikedItems];
   };
 
   useEffect(() => {
@@ -719,752 +745,994 @@ export default function UserPage({ id }: Props) {
   useEffect(() => {
     if (testSwitch.changeTo !== null) {
       if (testSwitch.type === "text") {
-        const sorted = changePosition(datas.slice(0));
-        setDatas(sorted);
+        setDatas(changePosition(datas.slice(0)));
       } else {
-        const sorted = changePosition(folders.slice(0));
-        setFolders(sorted);
+        setFolders(changePosition(folders.slice(0)));
       }
     }
   }, [testSwitch]);
 
-  return (
-    <div
-      className="relative flex h-screen w-full flex-col items-center justify-start"
-      onDragOver={(e) => {
-        e.preventDefault();
-      }}
-      onDrop={(e) => {
-        e.preventDefault();
-        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-          dropUploadWritten(e.dataTransfer.files[0]);
+  useEffect(() => {
+    const fetchPreviewContent = async () => {
+      if (!previewTarget?.id) return;
+
+      setIsPreviewLoading(true);
+      setPreviewContent("");
+
+      try {
+        const result = await fetch(`/api/text/${previewTarget.id}`, {
+          cache: "no-store",
+        });
+        const final = await result.json();
+
+        if (final.data && final.data.length > 0) {
+          const file = final.data[0];
+          const res = await fetch(file.path);
+          const text = await res.text();
+          setPreviewContent(text);
+        } else {
+          setPreviewContent("해당 문서를 찾을 수 없습니다.");
         }
-      }}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        setLocation2({
-          x: -1,
-          y: -1,
-          id: "",
-          fileType: "",
-          parentId: "",
-        });
-        setLocation({
-          x: e.pageX,
-          y: e.pageY,
-        });
-      }}
-      onClick={(e) => {
-        e.preventDefault();
-        setLocation({
-          x: -1,
-          y: -1,
-        });
-        setLocation2({
-          x: -1,
-          y: -1,
-          id: "",
-          fileType: "",
-          parentId: "",
-        });
-        if (modSwitch !== -1)
-          if (modSwitch >= 0)
-            editTitle(currentDataId, datas[modSwitch].realTitle);
-          else {
-            editTitle(
-              currentDataId,
-              folders[modSwitch / 1000 / -1 - 1].realTitle,
-            );
-          }
-      }}
-    >
-      {location.x !== -1 &&
-        (owner == session?.user?.email || id == undefined ? (
-          <Menu
-            location={location}
-            logined={true}
-            customFunctions={{ addText: uploadWritten, addFolder: addFolders }}
-          />
-        ) : (
-          <Menu
-            location={location}
-            logined={false}
-            customFunctions={{ addText: uploadWritten, addFolder: addFolders }}
-          />
-        ))}
-      {location2.x !== -1 &&
-        (owner == session?.user?.email || id == undefined) && (
-          <Menu
-            type="onFile"
-            location={location2}
-            customFunctions={{
-              addText: uploadWritten,
-              addFolder: addFolders,
-              editPath: editPath,
-            }}
-          />
-        )}
-      <div className="w-full">
-        {loading ? (
+      } catch (error) {
+        console.error(error);
+        setPreviewContent("시스템 오류가 발생하여 내용을 불러올 수 없습니다.");
+      } finally {
+        setIsPreviewLoading(false);
+      }
+    };
+
+    fetchPreviewContent();
+  }, [previewTarget?.id]);
+
+  return (
+    <div className="flex h-screen w-full flex-col overflow-hidden md:flex-row">
+      {isPreviewMode && (
+        <div
+          className="relative z-10 order-1 flex h-1/2 w-full flex-col overflow-hidden border-b-2 md:order-2 md:h-screen md:w-1/2 md:border-b-0 md:border-l-2"
+          style={{
+            borderColor: "var(--color-customBorder)",
+            backgroundColor: "var(--color-bg-primary)",
+            transition: "background-color 0.7s ease, box-shadow 0.2s ease",
+            boxShadow: isPreviewZoneActive
+              ? "inset 0 0 0 2px rgba(59,130,246,0.45)"
+              : "none",
+          }}
+          data-preview-panel="true"
+          onDragOver={(e: React.DragEvent<HTMLDivElement>) => {
+            if (!isFileDragging) return;
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onDrop={(e: React.DragEvent<HTMLDivElement>) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const dragType = e.dataTransfer.getData("drag-type");
+            const itemId = e.dataTransfer.getData("item-id");
+            const title = e.dataTransfer.getData("item-title");
+
+            if (dragType === "file" && itemId) {
+              setIsDesktopFileDragging(false);
+              openPreviewFile(itemId, title);
+            } else {
+              resetDragVisualState();
+            }
+          }}
+        >
           <div
-            onContextMenu={(e) => {
-              e.stopPropagation();
-            }}
-            className="flex h-screen w-full items-center justify-center"
+            className="flex items-center justify-between border-b p-4 shadow-sm"
+            style={{ borderColor: "var(--color-customBorder)" }}
           >
-            <Spinner />
-          </div>
-        ) : (
-          <>
-            <div className="w-full">
-              {owner == session?.user?.email ? (
+            <h2
+              className="truncate pr-4 text-lg font-bold"
+              style={{ color: "var(--color-primary)" }}
+            >
+              {previewTarget?.title}
+            </h2>
+            <div className="flex gap-x-2">
+              {datas.find((item: any) => item.id === previewTarget?.id)
+                ?.user === session?.user?.email && (
                 <button
-                  className="m-8 cursor-default"
                   onClick={() => {
-                    if (owner !== session?.user?.email) return;
-                    if (loadedParentId) {
-                      if (loadedParentId !== "0") {
-                        router.push(`/folder/${loadedParentId}`);
-                      } else {
-                        router.push("/");
-                      }
+                    if (previewTarget?.id) {
+                      router.push(`/text/${previewTarget.id}`);
                     }
                   }}
+                  className="whitespace-nowrap rounded-md border-2 px-4 py-2 text-sm font-medium transition-colors"
+                  style={{
+                    borderColor: "var(--color-customBorder)",
+                    color: "var(--color-primary)",
+                    backgroundColor: "transparent",
+                  }}
                 >
-                  {pathName === "folder" ? (
-                    <FaArrowLeft className="cursor-pointer" />
-                  ) : (
-                    ""
-                  )}
+                  편집모드로
                 </button>
-              ) : (
-                <button className="m-8 cursor-default"></button>
               )}
+              <button
+                onClick={() => {
+                  setIsPreviewMode(false);
+                  setPreviewTarget(null);
+                  setPreviewContent("");
+                }}
+                className="whitespace-nowrap rounded-md border-2 px-4 py-2 text-sm font-medium transition-colors"
+                style={{
+                  borderColor: "var(--color-customBorder)",
+                  color: "var(--color-primary)",
+                  backgroundColor: "transparent",
+                }}
+              >
+                닫기
+              </button>
             </div>
+          </div>
 
-            <div className="m-8 flex select-none flex-wrap justify-center gap-8 sm:justify-start">
-              <AnimatePresence>
-                {folders.map((folder: any, idx: number) => {
-                  const folderInputId = folder.title.replace(":", "-");
-                  return (
-                    // 폴더 모션 div
-                    <motion.div
-                      data-folder-id={folder.id}
-                      className={`actioned z-40 flex w-[112px] select-none sm:w-[140px] ${folder.id !== "temp" && "cursor-pointer"} flex-col items-center`}
-                      key={folder.title}
-                      onClick={() => {
-                        if (folder.id !== "temp")
-                          router.push(`/folder/${folder.id}`);
-                      }}
-                      layout
-                      initial={{ opacity: 0, y: -20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 20 }}
-                      transition={{ duration: 0.8 }}
-                      onDragOver={(e: React.DragEvent<HTMLDivElement>) => {
-                        e.preventDefault();
-                        if (folder.id === "temp") return;
-                        setDragOverFolderId(folder.id);
-                      }}
-                      onDragLeave={() => {
-                        setDragOverFolderId(null);
-                      }}
-                      onDrop={(e: React.DragEvent<HTMLDivElement>) => {
-                        e.preventDefault();
-                        e.stopPropagation();
+          <div className="flex-1 overflow-y-auto p-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {isPreviewLoading ? (
+              <div className="flex h-full w-full items-center justify-center">
+                <Spinner />
+              </div>
+            ) : (
+              <div
+                className="h-full w-full overflow-auto whitespace-pre-wrap rounded-md border-2 p-6 shadow-inner outline-none [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                style={{
+                  borderColor: "var(--color-customBorder)",
+                  backgroundColor: "var(--color-bg-primary)",
+                  color: "var(--color-primary)",
+                  transition: "background-color 0.7s ease",
+                }}
+              >
+                {previewContent}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
-                        if (folder.id === "temp") {
-                          setDragOverFolderId(null);
-                          return;
-                        }
+      <div
+        className={`relative flex flex-col items-center justify-start overflow-y-auto transition-all duration-300 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+          isPreviewMode
+            ? "order-2 h-1/2 w-full border-t-2 md:order-1 md:h-screen md:w-1/2 md:border-r-2 md:border-t-0"
+            : "h-screen w-full"
+        }`}
+        style={{ borderColor: "var(--color-customBorder)" }}
+        onDragOver={(e) => {
+          e.preventDefault();
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            dropUploadWritten(e.dataTransfer.files[0]);
+          }
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setLocation2({
+            x: -1,
+            y: -1,
+            id: "",
+            fileType: "",
+            parentId: "",
+          });
+          setLocation({
+            x: e.pageX,
+            y: e.pageY,
+          });
+        }}
+        onClick={(e) => {
+          e.preventDefault();
+          setLocation({
+            x: -1,
+            y: -1,
+          });
+          setLocation2({
+            x: -1,
+            y: -1,
+            id: "",
+            fileType: "",
+            parentId: "",
+          });
+          if (modSwitch !== -1)
+            if (modSwitch >= 0)
+              editTitle(currentDataId, datas[modSwitch].realTitle);
+            else {
+              editTitle(
+                currentDataId,
+                folders[modSwitch / 1000 / -1 - 1].realTitle,
+              );
+            }
+        }}
+      >
+        {location.x !== -1 &&
+          (owner == session?.user?.email || id == undefined ? (
+            <Menu
+              location={location}
+              logined={true}
+              customFunctions={{
+                addText: uploadWritten,
+                addFolder: addFolders,
+              }}
+            />
+          ) : (
+            <Menu
+              location={location}
+              logined={false}
+              customFunctions={{
+                addText: uploadWritten,
+                addFolder: addFolders,
+              }}
+            />
+          ))}
+        {location2.x !== -1 &&
+          (owner == session?.user?.email || id == undefined) && (
+            <Menu
+              type="onFile"
+              location={location2}
+              customFunctions={{
+                addText: uploadWritten,
+                addFolder: addFolders,
+                editPath: editPath,
+              }}
+            />
+          )}
 
-                        const dragType = e.dataTransfer.getData("drag-type");
-                        const itemId = e.dataTransfer.getData("item-id");
-                        const title = e.dataTransfer.getData("item-title");
-                        const parentId = e.dataTransfer.getData("item-parent");
-
-                        if (!itemId) {
-                          setDragOverFolderId(null);
-                          return;
-                        }
-
-                        if (dragType === "file") {
-                          moveFileToFolder(
-                            itemId,
-                            title,
-                            parentId,
-                            folder.id,
-                            folder.realTitle,
-                          );
-                        } else if (dragType === "folder") {
-                          moveFolderToFolder(
-                            itemId,
-                            title,
-                            parentId,
-                            folder.id,
-                            folder.realTitle,
-                          );
-                        }
-
-                        setDragOverFolderId(null);
-                      }}
-                      onContextMenu={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        setLocation({
-                          x: -1,
-                          y: -1,
-                        });
-                        setLocation2({
-                          x: e.pageX,
-                          y: e.pageY,
-                          id: folder.id,
-                          fileType: "folder",
-                          parentId: folder.parentId,
-                        });
-                      }}
-                      onPointerDown={(e) => {
-                        if (e.pointerType === "mouse") return;
-                        if (folder.id === "temp") return;
-
-                        (e.currentTarget as HTMLDivElement).setPointerCapture?.(
-                          e.pointerId,
-                        );
-
-                        touchDragRef.current = {
-                          pointerId: e.pointerId,
-                          startX: e.clientX,
-                          startY: e.clientY,
-                          dragging: false,
-                          itemType: "folder",
-                          itemId: folder.id,
-                          title: folder.realTitle,
-                          parentId: folder.parentId,
-                        };
-                      }}
-                      onPointerMove={(e) => {
-                        const t = touchDragRef.current;
-                        if (!t) return;
-                        if (e.pointerType === "mouse") return;
-                        if (t.pointerId !== e.pointerId) return;
-                        if (t.itemType !== "folder") return;
-
-                        const dist = Math.hypot(
-                          e.clientX - t.startX,
-                          e.clientY - t.startY,
-                        );
-
-                        if (!t.dragging && dist > 15) {
-                          t.dragging = true;
-                        }
-
-                        if (!t.dragging) return;
-
-                        e.preventDefault();
-
-                        setDraggingFolderId(t.itemId);
-                        setTouchGhost({
-                          title: t.title,
-                          x: e.clientX,
-                          y: e.clientY,
-                        });
-
-                        const el = document.elementFromPoint(
-                          e.clientX,
-                          e.clientY,
-                        ) as HTMLElement | null;
-                        const folderEl = el?.closest(
-                          "[data-folder-id]",
-                        ) as HTMLElement | null;
-
-                        const targetFolderId = folderEl?.dataset.folderId;
-                        if (targetFolderId && targetFolderId !== t.itemId) {
-                          setDragOverFolderId(targetFolderId);
+        <div className="w-full">
+          {loading ? (
+            <div
+              onContextMenu={(e) => {
+                e.stopPropagation();
+              }}
+              className="flex h-screen w-full items-center justify-center"
+            >
+              <Spinner />
+            </div>
+          ) : (
+            <>
+              <div className="w-full">
+                {owner == session?.user?.email ? (
+                  <button
+                    className="m-8 cursor-default"
+                    onClick={() => {
+                      if (owner !== session?.user?.email) return;
+                      if (loadedParentId) {
+                        if (loadedParentId !== "0") {
+                          router.push(`/folder/${loadedParentId}`);
                         } else {
-                          setDragOverFolderId(null);
+                          router.push("/");
                         }
-                      }}
-                      onPointerUp={(e) => {
-                        const t = touchDragRef.current;
-                        if (!t) return;
-                        if (e.pointerType === "mouse") return;
-                        if (t.pointerId !== e.pointerId) return;
-                        if (t.itemType !== "folder") return;
+                      }
+                    }}
+                  >
+                    {pathName === "folder" ? (
+                      <FaArrowLeft className="cursor-pointer" />
+                    ) : (
+                      ""
+                    )}
+                  </button>
+                ) : (
+                  <button className="m-8 cursor-default"></button>
+                )}
+              </div>
 
-                        if (t.dragging) {
+              <div className="m-8 flex select-none flex-wrap justify-center gap-8 sm:justify-start">
+                <AnimatePresence>
+                  {folders.map((folder: any, idx: number) => {
+                    const folderInputId = folder.title.replace(":", "-");
+                    return (
+                      <motion.div
+                        data-folder-id={folder.id}
+                        className={`actioned z-40 flex w-[112px] select-none sm:w-[140px] ${folder.id !== "temp" && "cursor-pointer"} flex-col items-center`}
+                        key={folder.title}
+                        onClick={() => {
+                          if (folder.id !== "temp")
+                            router.push(`/folder/${folder.id}`);
+                        }}
+                        layout
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 20 }}
+                        transition={{ duration: 0.8 }}
+                        onDragOver={(e: React.DragEvent<HTMLDivElement>) => {
                           e.preventDefault();
+                          if (folder.id === "temp") return;
+                          setDragOverFolderId(folder.id);
+                        }}
+                        onDragLeave={() => {
+                          setDragOverFolderId(null);
+                        }}
+                        onDrop={(e: React.DragEvent<HTMLDivElement>) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+
+                          if (folder.id === "temp") {
+                            setDragOverFolderId(null);
+                            return;
+                          }
+
+                          const dragType = e.dataTransfer.getData("drag-type");
+                          const itemId = e.dataTransfer.getData("item-id");
+                          const title = e.dataTransfer.getData("item-title");
+                          const parentId =
+                            e.dataTransfer.getData("item-parent");
+
+                          if (!itemId) {
+                            setDragOverFolderId(null);
+                            return;
+                          }
+
+                          if (dragType === "file") {
+                            moveFileToFolder(
+                              itemId,
+                              title,
+                              parentId,
+                              folder.id,
+                              folder.realTitle,
+                            );
+                          } else if (dragType === "folder") {
+                            moveFolderToFolder(
+                              itemId,
+                              title,
+                              parentId,
+                              folder.id,
+                              folder.realTitle,
+                            );
+                          }
+
+                          setIsDesktopFileDragging(false);
+                          setDragOverFolderId(null);
+                        }}
+                        onContextMenu={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          setLocation({
+                            x: -1,
+                            y: -1,
+                          });
+                          setLocation2({
+                            x: e.pageX,
+                            y: e.pageY,
+                            id: folder.id,
+                            fileType: "folder",
+                            parentId: folder.parentId,
+                          });
+                        }}
+                        onPointerDown={(e) => {
+                          if (e.pointerType === "mouse") return;
+                          if (folder.id === "temp") return;
+
+                          (
+                            e.currentTarget as HTMLDivElement
+                          ).setPointerCapture?.(e.pointerId);
+
+                          touchDragRef.current = {
+                            pointerId: e.pointerId,
+                            startX: e.clientX,
+                            startY: e.clientY,
+                            dragging: false,
+                            itemType: "folder",
+                            itemId: folder.id,
+                            title: folder.realTitle,
+                            parentId: folder.parentId,
+                          };
+                        }}
+                        onPointerMove={(e) => {
+                          const t = touchDragRef.current;
+                          if (!t) return;
+                          if (e.pointerType === "mouse") return;
+                          if (t.pointerId !== e.pointerId) return;
+                          if (t.itemType !== "folder") return;
+
+                          const dist = Math.hypot(
+                            e.clientX - t.startX,
+                            e.clientY - t.startY,
+                          );
+
+                          if (!t.dragging && dist > 15) {
+                            t.dragging = true;
+                          }
+
+                          if (!t.dragging) return;
+
+                          e.preventDefault();
+
+                          setDraggingFolderId(t.itemId);
+                          setTouchGhost({
+                            title: t.title,
+                            x: e.clientX,
+                            y: e.clientY,
+                          });
 
                           const el = document.elementFromPoint(
                             e.clientX,
                             e.clientY,
                           ) as HTMLElement | null;
+                          const previewEl = el?.closest(
+                            "[data-preview-zone='true']",
+                          ) as HTMLElement | null;
                           const folderEl = el?.closest(
                             "[data-folder-id]",
                           ) as HTMLElement | null;
+
+                          if (previewEl) {
+                            setIsPreviewZoneActive(false);
+                            setDragOverFolderId(null);
+                            return;
+                          }
 
                           const targetFolderId = folderEl?.dataset.folderId;
                           if (targetFolderId && targetFolderId !== t.itemId) {
-                            const targetFolder = folders.find(
-                              (f: any) => f.id === targetFolderId,
-                            );
-                            moveFolderToFolder(
-                              t.itemId,
-                              t.title,
-                              t.parentId,
-                              targetFolderId,
-                              targetFolder?.realTitle,
-                            );
+                            setDragOverFolderId(targetFolderId);
+                          } else {
+                            setDragOverFolderId(null);
                           }
-                        }
-
-                        (
-                          e.currentTarget as HTMLDivElement
-                        ).releasePointerCapture?.(e.pointerId);
-                        touchDragRef.current = null;
-                        setDraggingFolderId(null);
-                        setTouchGhost(null);
-                        setDragOverFolderId(null);
-                      }}
-                      onPointerCancel={(e) => {
-                        (
-                          e.currentTarget as HTMLDivElement
-                        ).releasePointerCapture?.(e.pointerId);
-                        touchDragRef.current = null;
-                        setDraggingFolderId(null);
-                        setTouchGhost(null);
-                        setDragOverFolderId(null);
-                      }}
-                    >
-                      <div
-                        draggable={folder.id !== "temp"}
-                        onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
-                          if (folder.id === "temp") return;
-
-                          e.dataTransfer.setData("drag-type", "folder");
-                          e.dataTransfer.setData("item-id", folder.id);
-                          e.dataTransfer.setData(
-                            "item-title",
-                            folder.realTitle,
-                          );
-                          e.dataTransfer.setData(
-                            "item-parent",
-                            folder.parentId,
-                          );
-
-                          setDraggingFolderId(folder.id);
                         }}
-                        onDragEnd={(e: React.DragEvent<HTMLDivElement>) => {
-                          setDraggingFolderId(null);
-                          setTouchGhost(null);
-                          setDragOverFolderId(null);
+                        onPointerUp={(e) => {
+                          const t = touchDragRef.current;
+                          if (!t) return;
+                          if (e.pointerType === "mouse") return;
+                          if (t.pointerId !== e.pointerId) return;
+                          if (t.itemType !== "folder") return;
+
+                          if (t.dragging) {
+                            e.preventDefault();
+
+                            const el = document.elementFromPoint(
+                              e.clientX,
+                              e.clientY,
+                            ) as HTMLElement | null;
+                            const folderEl = el?.closest(
+                              "[data-folder-id]",
+                            ) as HTMLElement | null;
+
+                            const targetFolderId = folderEl?.dataset.folderId;
+                            if (targetFolderId && targetFolderId !== t.itemId) {
+                              const targetFolder = folders.find(
+                                (f: any) => f.id === targetFolderId,
+                              );
+                              moveFolderToFolder(
+                                t.itemId,
+                                t.title,
+                                t.parentId,
+                                targetFolderId,
+                                targetFolder?.realTitle,
+                              );
+                            }
+                          }
+
+                          (
+                            e.currentTarget as HTMLDivElement
+                          ).releasePointerCapture?.(e.pointerId);
+                          touchDragRef.current = null;
+                          resetDragVisualState();
                         }}
-                        style={{
-                          backgroundColor:
-                            dragOverFolderId === folder.id
-                              ? "rgba(0,0,255,0.12)"
-                              : "var(--color-bg-primary)",
-                          transition:
-                            "background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease",
-                          transform:
-                            draggingFolderId === folder.id
-                              ? "scale(0.96)"
-                              : dragOverFolderId === folder.id
-                                ? "scale(1.04)"
-                                : "scale(1)",
-                          boxShadow:
-                            dragOverFolderId === folder.id
-                              ? "0 0 0 2px rgba(59,130,246,0.6), 0 12px 28px rgba(0,0,0,0.12)"
-                              : draggingFolderId === folder.id
-                                ? "0 10px 24px rgba(0,0,0,0.18)"
-                                : "none",
-                          opacity: draggingFolderId === folder.id ? 0.35 : 1,
-                          touchAction: "none",
+                        onPointerCancel={(e) => {
+                          (
+                            e.currentTarget as HTMLDivElement
+                          ).releasePointerCapture?.(e.pointerId);
+                          touchDragRef.current = null;
+                          resetDragVisualState();
                         }}
-                        className="relative h-[160px] w-[112px] rounded-md border-2 border-customBorder sm:h-[200px] sm:w-[140px]"
                       >
-                        {folder.user === session?.user?.email && (
-                          <>
-                            <div className="absolute left-1 top-1">
-                              <Heart
-                                data={folder}
-                                liked={folder.liked}
-                                setData={setTestSwitch}
-                              />
-                            </div>
-                            <div
-                              className="absolute end-0 p-1"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deleteFolder(folder.id);
-                              }}
-                            >
-                              <IoIosClose />
-                            </div>
-                          </>
-                        )}
-                        <div className="ml-4 mr-4 flex h-full items-center justify-center">
-                          {folder.id === "temp" ? (
-                            <div className="flex items-center justify-center text-center">
-                              <SpinnerMini />
+                        <div
+                          draggable={folder.id !== "temp"}
+                          onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
+                            if (folder.id === "temp") return;
+
+                            e.dataTransfer.setData("drag-type", "folder");
+                            e.dataTransfer.setData("item-id", folder.id);
+                            e.dataTransfer.setData(
+                              "item-title",
+                              folder.realTitle,
+                            );
+                            e.dataTransfer.setData(
+                              "item-parent",
+                              folder.parentId,
+                            );
+
+                            setDraggingFolderId(folder.id);
+                          }}
+                          onDragEnd={() => {
+                            resetDragVisualState();
+                          }}
+                          style={{
+                            backgroundColor:
+                              dragOverFolderId === folder.id
+                                ? "rgba(0,0,255,0.12)"
+                                : "var(--color-bg-primary)",
+                            transition:
+                              "background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease",
+                            transform:
+                              draggingFolderId === folder.id
+                                ? "scale(0.96)"
+                                : dragOverFolderId === folder.id
+                                  ? "scale(1.04)"
+                                  : "scale(1)",
+                            boxShadow:
+                              dragOverFolderId === folder.id
+                                ? "0 0 0 2px rgba(59,130,246,0.6), 0 12px 28px rgba(0,0,0,0.12)"
+                                : draggingFolderId === folder.id
+                                  ? "0 10px 24px rgba(0,0,0,0.18)"
+                                  : "none",
+                            opacity: draggingFolderId === folder.id ? 0.35 : 1,
+                            touchAction: "none",
+                          }}
+                          className="relative h-[160px] w-[112px] rounded-md border-2 border-customBorder sm:h-[200px] sm:w-[140px]"
+                        >
+                          {folder.user === session?.user?.email && (
+                            <>
+                              <div className="absolute left-1 top-1">
+                                <Heart
+                                  data={folder}
+                                  liked={folder.liked}
+                                  setData={setTestSwitch}
+                                />
+                              </div>
+                              <div
+                                className="absolute end-0 p-1"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteFolder(folder.id);
+                                }}
+                              >
+                                <IoIosClose />
+                              </div>
+                            </>
+                          )}
+                          <div className="ml-4 mr-4 flex h-full items-center justify-center">
+                            {folder.id === "temp" ? (
+                              <div className="flex items-center justify-center text-center">
+                                <SpinnerMini />
+                              </div>
+                            ) : (
+                              <div className="flex w-full items-center justify-center text-center">
+                                <FaRegFolderOpen className="text-7xl" />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div
+                          className="w-full"
+                          onClick={(e) => {
+                            if (
+                              owner == session?.user?.email ||
+                              id == undefined
+                            ) {
+                              if (folder.id !== "temp") {
+                                handleEditTitle(
+                                  e,
+                                  (idx + 1) * -1 * 1000,
+                                  folderInputId,
+                                );
+                                setCurrentDataId(folder.id);
+                              }
+                            }
+                          }}
+                        >
+                          {modSwitch == (idx + 1) * -1 * 1000 ? (
+                            <div>
+                              <input
+                                id={folderInputId}
+                                className="w-full text-center text-black outline-none"
+                                value={folder.realTitle}
+                                onContextMenu={(e) => {
+                                  e.stopPropagation();
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                }}
+                                onChange={(e) => {
+                                  let temp = folders.slice(0);
+                                  temp[idx].realTitle = e.target.value;
+                                  setFolders(temp);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key == "Enter") {
+                                    editTitle(
+                                      folder.id,
+                                      folders[idx].realTitle,
+                                    );
+                                  }
+                                }}
+                              ></input>
                             </div>
                           ) : (
-                            <div className="flex w-full items-center justify-center text-center">
-                              <FaRegFolderOpen className="text-7xl" />
+                            <div className="text-overflow-2 w-full text-center">
+                              {folder.realTitle}
                             </div>
                           )}
                         </div>
-                      </div>
-                      <div
-                        className="w-full"
-                        onClick={(e) => {
-                          if (
-                            owner == session?.user?.email ||
-                            id == undefined
-                          ) {
-                            if (folder.id !== "temp") {
-                              handleEditTitle(
-                                e,
-                                (idx + 1) * -1 * 1000,
-                                folderInputId,
-                              );
-                              setCurrentDataId(folder.id);
-                            }
-                          }
-                        }}
-                      >
-                        {modSwitch == (idx + 1) * -1 * 1000 ? (
-                          <div>
-                            <input
-                              id={folderInputId}
-                              className="w-full text-center text-black outline-none"
-                              value={folder.realTitle}
-                              onContextMenu={(e) => {
-                                e.stopPropagation();
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                              }}
-                              onChange={(e) => {
-                                let temp = folders.slice(0);
-                                temp[idx].realTitle = e.target.value;
-                                setFolders(temp);
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key == "Enter") {
-                                  editTitle(folder.id, folders[idx].realTitle);
-                                }
-                              }}
-                            ></input>
-                          </div>
-                        ) : (
-                          <div className="text-overflow-2 w-full text-center">
-                            {folder.realTitle}
-                          </div>
-                        )}
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
+
+              <div className="m-8 flex select-none flex-wrap justify-center gap-8 sm:justify-start">
+                <AnimatePresence>
+                  {(owner == session?.user?.email || id == undefined) && (
+                    <motion.div
+                      className="flex h-auto max-h-[160px] w-[112px] flex-col items-center sm:max-h-[200px] sm:w-[140px]"
+                      key={0}
+                      layout
+                      layoutId="addButton"
+                      onClick={addWritten}
+                      onContextMenu={(e) => {
+                        e.stopPropagation();
+                      }}
+                    >
+                      <div className="h-[160px] w-[112px] rounded-md border-2 border-dashed border-customBorder sm:h-[200px] sm:w-[140px]">
+                        <div className="ml-4 mr-4 flex h-full cursor-pointer items-center justify-center text-center text-4xl">
+                          +
+                        </div>
                       </div>
                     </motion.div>
-                  );
-                })}
-              </AnimatePresence>
-            </div>
-            <div className="m-8 flex select-none flex-wrap justify-center gap-8 sm:justify-start">
-              <AnimatePresence>
-                {(owner == session?.user?.email || id == undefined) && (
-                  <motion.div
-                    className="flex h-auto max-h-[160px] w-[112px] flex-col items-center sm:max-h-[200px] sm:w-[140px]"
-                    key={0}
-                    layout
-                    layoutId="addButton"
-                    onClick={addWritten}
-                    onContextMenu={(e) => {
-                      e.stopPropagation();
-                    }}
-                  >
-                    <div className="h-[160px] w-[112px] rounded-md border-2 border-customBorder sm:h-[200px] sm:w-[140px]">
-                      <div className="ml-4 mr-4 flex h-full cursor-pointer items-center justify-center text-center text-4xl">
-                        +
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-                {datas.map((data: any, idx: number) => {
-                  const inputId = data?.title.replace(":", "-");
-                  return (
-                    <motion.div
-                      className={`actioned z-40 flex w-[112px] select-none sm:w-[140px] ${data.id !== "temp" && "cursor-pointer"} flex-col items-center`}
-                      key={data.title}
-                      onPointerDown={(e) => {
-                        if (e.pointerType === "mouse") return;
-                        if (data.id === "temp") return;
+                  )}
 
-                        (e.currentTarget as HTMLDivElement).setPointerCapture?.(
-                          e.pointerId,
-                        );
-                        touchDragRef.current = {
-                          pointerId: e.pointerId,
-                          startX: e.clientX,
-                          startY: e.clientY,
-                          dragging: false,
-                          itemType: "file",
-                          itemId: data.id,
-                          title: data.realTitle,
-                          parentId: data.parentId,
-                        };
-                      }}
-                      onPointerMove={(e) => {
-                        const t = touchDragRef.current;
-                        if (!t) return;
-                        if (e.pointerType === "mouse") return;
-                        if (t.pointerId !== e.pointerId) return;
+                  {datas.map((data: any, idx: number) => {
+                    const inputId = data?.title.replace(":", "-");
+                    return (
+                      <motion.div
+                        className={`actioned z-40 flex w-[112px] select-none sm:w-[140px] ${data.id !== "temp" && "cursor-pointer"} flex-col items-center`}
+                        key={data.title}
+                        onPointerDown={(e) => {
+                          if (e.pointerType === "mouse") return;
+                          if (data.id === "temp") return;
 
-                        const dist = Math.hypot(
-                          e.clientX - t.startX,
-                          e.clientY - t.startY,
-                        );
+                          (
+                            e.currentTarget as HTMLDivElement
+                          ).setPointerCapture?.(e.pointerId);
+                          touchDragRef.current = {
+                            pointerId: e.pointerId,
+                            startX: e.clientX,
+                            startY: e.clientY,
+                            dragging: false,
+                            itemType: "file",
+                            itemId: data.id,
+                            title: data.realTitle,
+                            parentId: data.parentId,
+                          };
+                        }}
+                        onPointerMove={(e) => {
+                          const t = touchDragRef.current;
+                          if (!t) return;
+                          if (e.pointerType === "mouse") return;
+                          if (t.pointerId !== e.pointerId) return;
+                          if (t.itemType !== "file") return;
 
-                        if (!t.dragging && dist > 15) {
-                          t.dragging = true;
-                        }
+                          const dist = Math.hypot(
+                            e.clientX - t.startX,
+                            e.clientY - t.startY,
+                          );
 
-                        if (!t.dragging) return;
+                          if (!t.dragging && dist > 15) {
+                            t.dragging = true;
+                          }
 
-                        e.preventDefault();
+                          if (!t.dragging) return;
 
-                        if (t.itemType !== "file") return;
-
-                        setDraggingFileId(t.itemId);
-                        setTouchGhost({
-                          title: t.title,
-                          x: e.clientX,
-                          y: e.clientY,
-                        });
-
-                        const el = document.elementFromPoint(
-                          e.clientX,
-                          e.clientY,
-                        ) as HTMLElement | null;
-                        const folderEl = el?.closest(
-                          "[data-folder-id]",
-                        ) as HTMLElement | null;
-
-                        if (folderEl?.dataset.folderId) {
-                          setDragOverFolderId(folderEl.dataset.folderId);
-                        } else {
-                          setDragOverFolderId(null);
-                        }
-                      }}
-                      onPointerUp={(e) => {
-                        const t = touchDragRef.current;
-                        if (!t) return;
-                        if (e.pointerType === "mouse") return;
-                        if (t.pointerId !== e.pointerId) return;
-
-                        if (t.dragging) {
                           e.preventDefault();
+
+                          setDraggingFileId(t.itemId);
+                          setTouchGhost({
+                            title: t.title,
+                            x: e.clientX,
+                            y: e.clientY,
+                          });
 
                           const el = document.elementFromPoint(
                             e.clientX,
                             e.clientY,
                           ) as HTMLElement | null;
+                          const previewZoneEl = el?.closest(
+                            "[data-preview-zone='true']",
+                          ) as HTMLElement | null;
+                          const previewPanelEl = el?.closest(
+                            "[data-preview-panel='true']",
+                          ) as HTMLElement | null;
                           const folderEl = el?.closest(
                             "[data-folder-id]",
                           ) as HTMLElement | null;
 
-                          const folderId = folderEl?.dataset.folderId;
-                          if (folderId) {
-                            const targetFolder = folders.find(
-                              (f: any) => f.id === folderId,
-                            );
-                            moveFileToFolder(
-                              t.itemId,
-                              t.title,
-                              t.parentId,
-                              folderId,
-                              targetFolder?.realTitle,
-                            );
+                          if (previewZoneEl || previewPanelEl) {
+                            setIsPreviewZoneActive(true);
+                            setDragOverFolderId(null);
+                          } else if (folderEl?.dataset.folderId) {
+                            setIsPreviewZoneActive(false);
+                            setDragOverFolderId(folderEl.dataset.folderId);
+                          } else {
+                            setIsPreviewZoneActive(false);
+                            setDragOverFolderId(null);
                           }
-                        }
+                        }}
+                        onPointerUp={(e) => {
+                          const t = touchDragRef.current;
+                          if (!t) return;
+                          if (e.pointerType === "mouse") return;
+                          if (t.pointerId !== e.pointerId) return;
+                          if (t.itemType !== "file") return;
 
-                        (
-                          e.currentTarget as HTMLDivElement
-                        ).releasePointerCapture?.(e.pointerId);
-                        touchDragRef.current = null;
-                        setDraggingFileId(null);
-                        setTouchGhost(null);
-                        setDragOverFolderId(null);
-                      }}
-                      onPointerCancel={(e) => {
-                        (
-                          e.currentTarget as HTMLDivElement
-                        ).releasePointerCapture?.(e.pointerId);
-                        touchDragRef.current = null;
-                        setDraggingFileId(null);
-                        setTouchGhost(null);
-                        setDragOverFolderId(null);
-                      }}
-                      onClick={() => {
-                        if (data.id !== "temp") router.push(`/text/${data.id}`);
-                      }}
-                      layout
-                      initial={{ opacity: 0, y: -20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 20 }}
-                      transition={{ duration: 0.8 }}
-                      onContextMenu={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        setLocation({
-                          x: -1,
-                          y: -1,
-                        });
-                        setLocation2({
-                          x: e.pageX,
-                          y: e.pageY,
-                          id: data.id,
-                          fileType: "file",
-                          parentId: data.parentId,
-                        });
-                      }}
-                    >
-                      <div
-                        draggable={data.id !== "temp"}
-                        onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
+                          if (t.dragging) {
+                            e.preventDefault();
+
+                            const el = document.elementFromPoint(
+                              e.clientX,
+                              e.clientY,
+                            ) as HTMLElement | null;
+                            const previewZoneEl = el?.closest(
+                              "[data-preview-zone='true']",
+                            ) as HTMLElement | null;
+                            const previewPanelEl = el?.closest(
+                              "[data-preview-panel='true']",
+                            ) as HTMLElement | null;
+                            const folderEl = el?.closest(
+                              "[data-folder-id]",
+                            ) as HTMLElement | null;
+
+                            if (previewZoneEl || previewPanelEl) {
+                              openPreviewFile(t.itemId, t.title);
+                            } else {
+                              const folderId = folderEl?.dataset.folderId;
+                              if (folderId) {
+                                const targetFolder = folders.find(
+                                  (f: any) => f.id === folderId,
+                                );
+                                moveFileToFolder(
+                                  t.itemId,
+                                  t.title,
+                                  t.parentId,
+                                  folderId,
+                                  targetFolder?.realTitle,
+                                );
+                              }
+                            }
+                          }
+
+                          (
+                            e.currentTarget as HTMLDivElement
+                          ).releasePointerCapture?.(e.pointerId);
+                          touchDragRef.current = null;
+                          resetDragVisualState();
+                        }}
+                        onPointerCancel={(e) => {
+                          (
+                            e.currentTarget as HTMLDivElement
+                          ).releasePointerCapture?.(e.pointerId);
+                          touchDragRef.current = null;
+                          resetDragVisualState();
+                        }}
+                        onClick={() => {
                           if (data.id === "temp") return;
-
-                          e.dataTransfer.setData("drag-type", "file");
-                          e.dataTransfer.setData("item-id", data.id);
-                          e.dataTransfer.setData("item-title", data.realTitle);
-                          e.dataTransfer.setData("item-parent", data.parentId);
-
-                          setDraggingFileId(data.id);
+                          if (isPreviewMode) {
+                            openPreviewFile(data.id, data.realTitle);
+                            return;
+                          }
+                          router.push(`/text/${data.id}`);
                         }}
-                        onDragEnd={(e: React.DragEvent<HTMLDivElement>) => {
-                          setDraggingFileId(null);
-                          setTouchGhost(null);
-                          setDragOverFolderId(null);
+                        layout
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 20 }}
+                        transition={{ duration: 0.8 }}
+                        onContextMenu={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          setLocation({
+                            x: -1,
+                            y: -1,
+                          });
+                          setLocation2({
+                            x: e.pageX,
+                            y: e.pageY,
+                            id: data.id,
+                            fileType: "file",
+                            parentId: data.parentId,
+                          });
                         }}
-                        style={{
-                          backgroundColor: "var(--color-bg-primary)",
-                          transition:
-                            "background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease",
-                          touchAction: "none",
-                          opacity: draggingFileId === data.id ? 0.35 : 1,
-                          transform:
-                            draggingFileId === data.id
-                              ? "scale(0.96)"
-                              : "scale(1)",
-                          boxShadow:
-                            draggingFileId === data.id
-                              ? "0 10px 24px rgba(0,0,0,0.18)"
-                              : "none",
-                        }}
-                        className="relative h-[160px] w-[112px] rounded-md border-2 border-customBorder sm:h-[200px] sm:w-[140px]"
                       >
-                        {data.user === session?.user?.email && (
-                          <>
-                            <div className="absolute left-1 top-1">
-                              <Heart
-                                data={data}
-                                liked={data.liked}
-                                setData={setTestSwitch}
-                              />
-                            </div>
-                            <div
-                              className="absolute end-0 p-1"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deleteWritten(data.id, data.title);
-                              }}
-                            >
-                              <IoIosClose />
-                            </div>
-                          </>
-                        )}
-                        <div className="ml-4 mr-4 flex h-full items-center justify-center">
-                          {data.id === "temp" ? (
-                            <div className="flex items-center justify-center text-center">
-                              <SpinnerMini />
+                        <div
+                          draggable={data.id !== "temp"}
+                          onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
+                            if (data.id === "temp") return;
+
+                            e.dataTransfer.setData("drag-type", "file");
+                            e.dataTransfer.setData("item-id", data.id);
+                            e.dataTransfer.setData(
+                              "item-title",
+                              data.realTitle,
+                            );
+                            e.dataTransfer.setData(
+                              "item-parent",
+                              data.parentId,
+                            );
+                            e.dataTransfer.effectAllowed = "move";
+
+                            requestAnimationFrame(() => {
+                              setDraggingFileId(data.id);
+                              setIsDesktopFileDragging(true);
+                            });
+                          }}
+                          onDragEnd={() => {
+                            setIsDesktopFileDragging(false);
+                            resetDragVisualState();
+                          }}
+                          style={{
+                            backgroundColor: "var(--color-bg-primary)",
+                            transition:
+                              "background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease",
+                            touchAction: "none",
+                            opacity: draggingFileId === data.id ? 0.35 : 1,
+                            transform:
+                              draggingFileId === data.id
+                                ? "scale(0.96)"
+                                : "scale(1)",
+                            boxShadow:
+                              draggingFileId === data.id
+                                ? "0 10px 24px rgba(0,0,0,0.18)"
+                                : "none",
+                          }}
+                          className="relative h-[160px] w-[112px] rounded-md border-2 border-customBorder sm:h-[200px] sm:w-[140px]"
+                        >
+                          {data.user === session?.user?.email && (
+                            <>
+                              <div className="absolute left-1 top-1">
+                                <Heart
+                                  data={data}
+                                  liked={data.liked}
+                                  setData={setTestSwitch}
+                                />
+                              </div>
+                              <div
+                                className="absolute end-0 p-1"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteWritten(data.id, data.title);
+                                }}
+                              >
+                                <IoIosClose />
+                              </div>
+                            </>
+                          )}
+                          <div className="ml-4 mr-4 flex h-full items-center justify-center">
+                            {data.id === "temp" ? (
+                              <div className="flex items-center justify-center text-center">
+                                <SpinnerMini />
+                              </div>
+                            ) : (
+                              <div className="text-overflow flex w-full items-center justify-center text-center">
+                                {data.realTitle}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div
+                          className="w-full"
+                          onClick={(e) => {
+                            if (
+                              owner == session?.user?.email ||
+                              id == undefined
+                            ) {
+                              if (data.id !== "temp") {
+                                handleEditTitle(e, idx, inputId);
+                                setCurrentDataId(data.id);
+                              }
+                            }
+                          }}
+                        >
+                          {modSwitch == idx ? (
+                            <div>
+                              <input
+                                id={inputId}
+                                className="w-full text-center text-black outline-none"
+                                value={data.realTitle}
+                                onContextMenu={(e) => {
+                                  e.stopPropagation();
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                }}
+                                onChange={(e) => {
+                                  let temp = datas.slice(0);
+                                  temp[idx].realTitle = e.target.value;
+                                  setDatas(temp);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key == "Enter") {
+                                    editTitle(data.id, datas[idx].realTitle);
+                                  }
+                                }}
+                              ></input>
                             </div>
                           ) : (
-                            <div className="text-overflow flex w-full items-center justify-center text-center">
+                            <div className="text-overflow-2 w-full text-center">
                               {data.realTitle}
                             </div>
                           )}
                         </div>
-                      </div>
-                      <div
-                        className="w-full"
-                        onClick={(e) => {
-                          if (
-                            owner == session?.user?.email ||
-                            id == undefined
-                          ) {
-                            if (data.id !== "temp") {
-                              handleEditTitle(e, idx, inputId);
-                              setCurrentDataId(data.id);
-                            }
-                          }
-                        }}
-                      >
-                        {modSwitch == idx ? (
-                          <div>
-                            <input
-                              id={inputId}
-                              className="w-full text-center text-black outline-none"
-                              value={data.realTitle}
-                              onContextMenu={(e) => {
-                                e.stopPropagation();
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                              }}
-                              onChange={(e) => {
-                                let temp = datas.slice(0);
-                                temp[idx].realTitle = e.target.value;
-                                setDatas(temp);
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key == "Enter") {
-                                  editTitle(data.id, datas[idx].realTitle);
-                                }
-                              }}
-                            ></input>
-                          </div>
-                        ) : (
-                          <div className="text-overflow-2 w-full text-center">
-                            {data.realTitle}
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </AnimatePresence>
-            </div>
-          </>
-        )}
-      </div>
-      {touchGhost && (
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
+            </>
+          )}
+        </div>
+
         <div
-          className="pointer-events-none fixed z-[9999] -translate-x-1/2 -translate-y-1/2"
+          data-preview-zone="true"
+          onDragOver={(e: React.DragEvent<HTMLDivElement>) => {
+            if (!isFileDragging) return;
+            e.preventDefault();
+            e.stopPropagation();
+            setIsPreviewZoneActive(true);
+            setDragOverFolderId(null);
+          }}
+          onDragLeave={() => {
+            setIsPreviewZoneActive(false);
+          }}
+          onDrop={(e: React.DragEvent<HTMLDivElement>) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const dragType = e.dataTransfer.getData("drag-type");
+            const itemId = e.dataTransfer.getData("item-id");
+            const title = e.dataTransfer.getData("item-title");
+
+            if (dragType === "file" && itemId) {
+              openPreviewFile(itemId, title);
+            } else {
+              resetDragVisualState();
+            }
+          }}
+          className="fixed bottom-0 left-0 right-0 z-[9998] px-3 pb-3 md:px-4 md:pb-4"
           style={{
-            left: touchGhost.x,
-            top: touchGhost.y - 18,
+            opacity: isFileDragging ? 1 : 0,
+            transform: isFileDragging
+              ? isPreviewZoneActive
+                ? "translateY(0)"
+                : "translateY(0)"
+              : "translateY(20px)",
+            transition: "opacity 0.2s ease, transform 0.2s ease",
+            pointerEvents: isFileDragging ? "auto" : "none",
           }}
         >
           <div
-            className="max-w-[160px] rounded-md border-2 px-3 py-2 text-sm shadow-2xl"
+            className="flex h-[72px] w-full items-center justify-center rounded-2xl border-2 text-base font-bold shadow-2xl md:h-[84px] md:text-lg"
             style={{
               backgroundColor: "var(--color-bg-primary)",
               color: "var(--color-primary)",
-              borderColor: "var(--color-customBorder)",
-              opacity: 0.95,
+              borderColor: isPreviewZoneActive
+                ? "rgba(59,130,246,0.8)"
+                : "var(--color-customBorder)",
+              boxShadow: isPreviewZoneActive
+                ? "0 0 0 2px rgba(59,130,246,0.45), 0 12px 28px rgba(0,0,0,0.18)"
+                : "0 8px 20px rgba(0,0,0,0.12)",
             }}
           >
-            <div className="truncate">{touchGhost.title}</div>
+            여기에 놓아 미리보기
           </div>
         </div>
-      )}
+
+        {touchGhost && (
+          <div
+            className="pointer-events-none fixed z-[9999] -translate-x-1/2 -translate-y-1/2"
+            style={{
+              left: touchGhost.x,
+              top: touchGhost.y - 18,
+            }}
+          >
+            <div
+              className="max-w-[160px] rounded-md border-2 px-3 py-2 text-sm shadow-2xl"
+              style={{
+                backgroundColor: "var(--color-bg-primary)",
+                color: "var(--color-primary)",
+                borderColor: "var(--color-customBorder)",
+                opacity: 0.95,
+              }}
+            >
+              <div className="truncate">{touchGhost.title}</div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
