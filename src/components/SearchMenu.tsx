@@ -23,6 +23,7 @@ interface SearchMenuProps {
   onClose: () => void;
   onOpenFile: (fileId: string) => void;
   onOpenFolder: (folderId: string) => void;
+  onOpenPath: (parentId: string) => void;
   anchorRect: DOMRect | null;
 }
 
@@ -34,6 +35,7 @@ export default function SearchMenu({
   onClose,
   onOpenFile,
   onOpenFolder,
+  onOpenPath,
   anchorRect,
 }: SearchMenuProps) {
   const [query, setQuery] = useState("");
@@ -234,7 +236,7 @@ export default function SearchMenu({
         </button>
       </div>
 
-      <div
+      {/* <div
         className="flex gap-2 border-b-2 px-2 py-2 md:px-3"
         style={{ borderColor: "var(--color-customBorder)" }}
       >
@@ -262,7 +264,7 @@ export default function SearchMenu({
             </button>
           );
         })}
-      </div>
+      </div> */}
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3 pt-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {loading ? (
@@ -274,43 +276,55 @@ export default function SearchMenu({
         ) : (
           <div className="flex flex-col gap-2">
             {results.map((item) => (
-              <button
+              <div
                 key={`${item.type}-${item.id}-${item.order}`}
-                onClick={() => {
-                  if (item.type === "file") {
-                    onOpenFile(item.id);
-                  } else {
-                    onOpenFolder(item.id);
-                  }
-                  onClose();
-                }}
                 className="w-full rounded-xl border-2 p-2 text-left transition hover:opacity-90 md:p-3"
                 style={{
                   borderColor: "var(--color-customBorder)",
                   backgroundColor: "transparent",
                 }}
               >
-                <div className="flex items-start justify-between gap-2 md:gap-3">
-                  <div className="flex min-w-0 items-center gap-2">
-                    {item.type === "folder" ? (
-                      <FaRegFolderOpen className="shrink-0 text-sm opacity-80 md:text-base" />
-                    ) : (
-                      <FiFileText className="shrink-0 text-sm opacity-80 md:text-base" />
-                    )}
-                    <span className="truncate text-xs font-bold md:text-sm">
-                      {item.realTitle}
+                <button
+                  onClick={() => {
+                    if (item.type === "file") {
+                      onOpenFile(item.id);
+                    } else {
+                      onOpenFolder(item.id);
+                    }
+                    onClose();
+                  }}
+                  className="block w-full text-left"
+                >
+                  <div className="flex items-start justify-between gap-2 md:gap-3">
+                    <div className="flex min-w-0 items-center gap-2">
+                      {item.type === "folder" ? (
+                        <FaRegFolderOpen className="shrink-0 text-sm opacity-80 md:text-base" />
+                      ) : (
+                        <FiFileText className="shrink-0 text-sm opacity-80 md:text-base" />
+                      )}
+                      <span className="truncate text-xs font-bold md:text-sm">
+                        {item.realTitle}
+                      </span>
+                    </div>
+
+                    <span className="shrink-0 text-[10px] opacity-70 md:text-xs">
+                      {item.createdAtText}
                     </span>
                   </div>
+                </button>
 
-                  <span className="shrink-0 text-[10px] opacity-70 md:text-xs">
-                    {item.createdAtText}
-                  </span>
-                </div>
-
-                <div className="mt-1 truncate pl-5 text-[10px] opacity-70 md:pl-6 md:text-xs">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenPath(item.parentId);
+                    onClose();
+                  }}
+                  className="mt-1 block max-w-full truncate pl-5 text-[10px] underline-offset-2 opacity-70 hover:underline md:pl-6 md:text-xs"
+                  style={{ color: "var(--color-primary)" }}
+                >
                   / {item.pathText || ""}
-                </div>
-              </button>
+                </button>
+              </div>
             ))}
           </div>
         )}

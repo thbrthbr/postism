@@ -241,6 +241,13 @@ export default function Menu({
           onClose={() => setIsSearchOpen(false)}
           onOpenFile={(fileId) => router.push(`/text/${fileId}`)}
           onOpenFolder={(folderId) => router.push(`/folder/${folderId}`)}
+          onOpenPath={(parentId) => {
+            if (parentId === "0") {
+              router.push("/");
+              return;
+            }
+            router.push(`/folder/${parentId}`);
+          }}
         />
       )}
     </div>
