@@ -974,6 +974,10 @@ export default function UserPage({ id }: Props) {
                         if (e.pointerType === "mouse") return;
                         if (data.id === "temp") return;
 
+                        (e.currentTarget as HTMLDivElement).setPointerCapture?.(
+                          e.pointerId,
+                        );
+
                         touchDragRef.current = {
                           pointerId: e.pointerId,
                           startX: e.clientX,
@@ -1001,6 +1005,8 @@ export default function UserPage({ id }: Props) {
 
                         if (!t.dragging) return;
 
+                        e.preventDefault();
+
                         const el = document.elementFromPoint(
                           e.clientX,
                           e.clientY,
@@ -1022,6 +1028,8 @@ export default function UserPage({ id }: Props) {
                         if (t.pointerId !== e.pointerId) return;
 
                         if (t.dragging) {
+                          e.preventDefault();
+
                           const el = document.elementFromPoint(
                             e.clientX,
                             e.clientY,
@@ -1041,10 +1049,16 @@ export default function UserPage({ id }: Props) {
                           }
                         }
 
+                        (
+                          e.currentTarget as HTMLDivElement
+                        ).releasePointerCapture?.(e.pointerId);
                         touchDragRef.current = null;
                         setDragOverFolderId(null);
                       }}
-                      onPointerCancel={() => {
+                      onPointerCancel={(e) => {
+                        (
+                          e.currentTarget as HTMLDivElement
+                        ).releasePointerCapture?.(e.pointerId);
                         touchDragRef.current = null;
                         setDragOverFolderId(null);
                       }}
@@ -1086,6 +1100,7 @@ export default function UserPage({ id }: Props) {
                         style={{
                           backgroundColor: "var(--color-bg-primary)",
                           transition: "background-color 0.7s ease",
+                          touchAction: "none",
                         }}
                         className="relative h-[160px] w-[112px] rounded-md border-2 border-customBorder sm:h-[200px] sm:w-[140px]"
                       >
