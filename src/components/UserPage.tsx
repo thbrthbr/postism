@@ -70,12 +70,14 @@ export default function UserPage({ id }: Props) {
     startX: number;
     startY: number;
     dragging: boolean;
-    fileId: string;
+    itemType: "file" | "folder";
+    itemId: string;
     title: string;
     parentId: string;
   } | null>(null);
 
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+  const [draggingFolderId, setDraggingFolderId] = useState<string | null>(null);
 
   const uploadWritten = async () => {
     try {
@@ -625,6 +627,23 @@ export default function UserPage({ id }: Props) {
     await editPath(fileId, "file", folderId, parentId);
   };
 
+  const moveFolderToFolder = async (
+    folderId: string,
+    title: string,
+    parentId: string,
+    targetFolderId: string,
+  ) => {
+    if (folderId === targetFolderId) {
+      toast({
+        title: "알림",
+        description: "자기 자신 안으로는 이동할 수 없습니다",
+      });
+      return;
+    }
+
+    await editPath(folderId, "folder", targetFolderId, parentId);
+  };
+
   const getParentId = async () => {
     const result = await fetch(`/api/folder/${id}`, {
       method: "GET",
@@ -800,6 +819,7 @@ export default function UserPage({ id }: Props) {
                 {folders.map((folder: any, idx: number) => {
                   const folderInputId = folder.title.replace(":", "-");
                   return (
+                    // 폴더 모션 div
                     <motion.div
                       data-folder-id={folder.id}
                       className={`actioned z-40 flex w-[112px] select-none sm:w-[140px] ${folder.id !== "temp" && "cursor-pointer"} flex-col items-center`}
@@ -830,12 +850,25 @@ export default function UserPage({ id }: Props) {
                           return;
                         }
 
-                        const fileId = e.dataTransfer.getData("file-id");
-                        const title = e.dataTransfer.getData("file-title");
-                        const parentId = e.dataTransfer.getData("file-parent");
+                        const dragType = e.dataTransfer.getData("drag-type");
+                        const itemId = e.dataTransfer.getData("item-id");
+                        const title = e.dataTransfer.getData("item-title");
+                        const parentId = e.dataTransfer.getData("item-parent");
 
-                        if (fileId) {
-                          moveFileToFolder(fileId, title, parentId, folder.id);
+                        if (!itemId) {
+                          setDragOverFolderId(null);
+                          return;
+                        }
+
+                        if (dragType === "file") {
+                          moveFileToFolder(itemId, title, parentId, folder.id);
+                        } else if (dragType === "folder") {
+                          moveFolderToFolder(
+                            itemId,
+                            title,
+                            parentId,
+                            folder.id,
+                          );
                         }
 
                         setDragOverFolderId(null);
@@ -855,23 +888,158 @@ export default function UserPage({ id }: Props) {
                           parentId: folder.parentId,
                         });
                       }}
+                      onPointerDown={(e) => {
+                        if (e.pointerType === "mouse") return;
+                        if (folder.id === "temp") return;
+
+                        (e.currentTarget as HTMLDivElement).setPointerCapture?.(
+                          e.pointerId,
+                        );
+
+                        touchDragRef.current = {
+                          pointerId: e.pointerId,
+                          startX: e.clientX,
+                          startY: e.clientY,
+                          dragging: false,
+                          itemType: "folder",
+                          itemId: folder.id,
+                          title: folder.realTitle,
+                          parentId: folder.parentId,
+                        };
+                      }}
+                      onPointerMove={(e) => {
+                        const t = touchDragRef.current;
+                        if (!t) return;
+                        if (e.pointerType === "mouse") return;
+                        if (t.pointerId !== e.pointerId) return;
+                        if (t.itemType !== "folder") return;
+
+                        const dist = Math.hypot(
+                          e.clientX - t.startX,
+                          e.clientY - t.startY,
+                        );
+
+                        if (!t.dragging && dist > 15) {
+                          t.dragging = true;
+                        }
+
+                        if (!t.dragging) return;
+
+                        e.preventDefault();
+
+                        setDraggingFolderId(t.itemId);
+                        setTouchGhost({
+                          title: t.title,
+                          x: e.clientX,
+                          y: e.clientY,
+                        });
+
+                        const el = document.elementFromPoint(
+                          e.clientX,
+                          e.clientY,
+                        ) as HTMLElement | null;
+                        const folderEl = el?.closest(
+                          "[data-folder-id]",
+                        ) as HTMLElement | null;
+
+                        const targetFolderId = folderEl?.dataset.folderId;
+                        if (targetFolderId && targetFolderId !== t.itemId) {
+                          setDragOverFolderId(targetFolderId);
+                        } else {
+                          setDragOverFolderId(null);
+                        }
+                      }}
+                      onPointerUp={(e) => {
+                        const t = touchDragRef.current;
+                        if (!t) return;
+                        if (e.pointerType === "mouse") return;
+                        if (t.pointerId !== e.pointerId) return;
+                        if (t.itemType !== "folder") return;
+
+                        if (t.dragging) {
+                          e.preventDefault();
+
+                          const el = document.elementFromPoint(
+                            e.clientX,
+                            e.clientY,
+                          ) as HTMLElement | null;
+                          const folderEl = el?.closest(
+                            "[data-folder-id]",
+                          ) as HTMLElement | null;
+
+                          const targetFolderId = folderEl?.dataset.folderId;
+                          if (targetFolderId && targetFolderId !== t.itemId) {
+                            moveFolderToFolder(
+                              t.itemId,
+                              t.title,
+                              t.parentId,
+                              targetFolderId,
+                            );
+                          }
+                        }
+
+                        (
+                          e.currentTarget as HTMLDivElement
+                        ).releasePointerCapture?.(e.pointerId);
+                        touchDragRef.current = null;
+                        setDraggingFolderId(null);
+                        setTouchGhost(null);
+                        setDragOverFolderId(null);
+                      }}
+                      onPointerCancel={(e) => {
+                        (
+                          e.currentTarget as HTMLDivElement
+                        ).releasePointerCapture?.(e.pointerId);
+                        touchDragRef.current = null;
+                        setDraggingFolderId(null);
+                        setTouchGhost(null);
+                        setDragOverFolderId(null);
+                      }}
                     >
                       <div
+                        draggable={folder.id !== "temp"}
+                        onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
+                          if (folder.id === "temp") return;
+
+                          e.dataTransfer.setData("drag-type", "folder");
+                          e.dataTransfer.setData("item-id", folder.id);
+                          e.dataTransfer.setData(
+                            "item-title",
+                            folder.realTitle,
+                          );
+                          e.dataTransfer.setData(
+                            "item-parent",
+                            folder.parentId,
+                          );
+
+                          setDraggingFolderId(folder.id);
+                        }}
+                        onDragEnd={(e: React.DragEvent<HTMLDivElement>) => {
+                          setDraggingFolderId(null);
+                          setTouchGhost(null);
+                          setDragOverFolderId(null);
+                        }}
                         style={{
                           backgroundColor:
                             dragOverFolderId === folder.id
                               ? "rgba(0,0,255,0.12)"
                               : "var(--color-bg-primary)",
                           transition:
-                            "background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease",
+                            "background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease",
                           transform:
-                            dragOverFolderId === folder.id
-                              ? "scale(1.04)"
-                              : "scale(1)",
+                            draggingFolderId === folder.id
+                              ? "scale(0.96)"
+                              : dragOverFolderId === folder.id
+                                ? "scale(1.04)"
+                                : "scale(1)",
                           boxShadow:
                             dragOverFolderId === folder.id
                               ? "0 0 0 2px rgba(59,130,246,0.6), 0 12px 28px rgba(0,0,0,0.12)"
-                              : "none",
+                              : draggingFolderId === folder.id
+                                ? "0 10px 24px rgba(0,0,0,0.18)"
+                                : "none",
+                          opacity: draggingFolderId === folder.id ? 0.35 : 1,
+                          touchAction: "none",
                         }}
                         className="relative h-[160px] w-[112px] rounded-md border-2 border-customBorder sm:h-[200px] sm:w-[140px]"
                       >
@@ -993,13 +1161,13 @@ export default function UserPage({ id }: Props) {
                         (e.currentTarget as HTMLDivElement).setPointerCapture?.(
                           e.pointerId,
                         );
-
                         touchDragRef.current = {
                           pointerId: e.pointerId,
                           startX: e.clientX,
                           startY: e.clientY,
                           dragging: false,
-                          fileId: data.id,
+                          itemType: "file",
+                          itemId: data.id,
                           title: data.realTitle,
                           parentId: data.parentId,
                         };
@@ -1023,7 +1191,9 @@ export default function UserPage({ id }: Props) {
 
                         e.preventDefault();
 
-                        setDraggingFileId(t.fileId);
+                        if (t.itemType !== "file") return;
+
+                        setDraggingFileId(t.itemId);
                         setTouchGhost({
                           title: t.title,
                           x: e.clientX,
@@ -1064,7 +1234,7 @@ export default function UserPage({ id }: Props) {
                           const folderId = folderEl?.dataset.folderId;
                           if (folderId) {
                             moveFileToFolder(
-                              t.fileId,
+                              t.itemId,
                               t.title,
                               t.parentId,
                               folderId,
@@ -1117,13 +1287,17 @@ export default function UserPage({ id }: Props) {
                         draggable={data.id !== "temp"}
                         onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
                           if (data.id === "temp") return;
-                          e.dataTransfer.setData("file-id", data.id);
-                          e.dataTransfer.setData("file-title", data.realTitle);
-                          e.dataTransfer.setData("file-parent", data.parentId);
+
+                          e.dataTransfer.setData("drag-type", "file");
+                          e.dataTransfer.setData("item-id", data.id);
+                          e.dataTransfer.setData("item-title", data.realTitle);
+                          e.dataTransfer.setData("item-parent", data.parentId);
+
                           setDraggingFileId(data.id);
                         }}
                         onDragEnd={(e: React.DragEvent<HTMLDivElement>) => {
                           setDraggingFileId(null);
+                          setTouchGhost(null);
                           setDragOverFolderId(null);
                         }}
                         style={{
