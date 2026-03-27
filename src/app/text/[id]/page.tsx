@@ -17,6 +17,7 @@ import MarkdownImageEditor, {
   MarkdownImageEditorRef,
 } from "@/components/MarkdownImageEditor";
 import { useMonaco } from "@monaco-editor/react";
+import { appLargeSwal, appSwal, icons } from "@/lib/swal";
 
 declare global {
   interface Window {
@@ -281,20 +282,22 @@ export default function Text() {
   const handleBack = () => {
     const current = getCurrentContent();
     if (current !== originalRef.current) {
-      Swal.fire({
-        title: "내용이 변경되었습니다",
-        html: "<div>변경사항을 저장하지 않고</div><div>페이지를 이탈하시겠습니까?</div>",
-        icon: "warning",
-        customClass: { title: "text-xl" },
-        showCancelButton: true,
-        confirmButtonText: "확인",
-        cancelButtonText: "취소",
-      }).then((result) => {
-        if (result.isConfirmed) {
-          if (parentId === "0") router.push("/");
-          else router.push(`/folder/${parentId}`);
-        }
-      });
+      appLargeSwal
+        .fire({
+          title: "내용이 변경되었습니다",
+          html: "<div>변경사항을 저장하지 않고</div><div>페이지를 이탈하시겠습니까?</div>",
+          icon: icons.warning.icon,
+          iconColor: icons.warning.color,
+          showCancelButton: true,
+          confirmButtonText: "확인",
+          cancelButtonText: "취소",
+        })
+        .then((result) => {
+          if (result.isConfirmed) {
+            if (parentId === "0") router.push("/");
+            else router.push(`/folder/${parentId}`);
+          }
+        });
     } else {
       if (parentId === "0") router.push("/");
       else router.push(`/folder/${parentId}`);

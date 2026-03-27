@@ -14,6 +14,7 @@ import { useSession } from "next-auth/react";
 import { useToast } from "@/hooks/use-toast";
 import Swal from "sweetalert2";
 import Heart from "@/components/Heart";
+import { appSwal, icons } from "@/lib/swal";
 
 interface Props {
   id?: string;
@@ -202,63 +203,67 @@ export default function UserPage({ id }: Props) {
       });
       return;
     }
-    Swal.fire({
-      title: "파일 업로드",
-      text: "파일을 업로드 하시겠습니까?",
-      showCancelButton: true,
-      confirmButtonText: "확인",
-      cancelButtonText: "취소",
-    }).then(async (result) => {
-      if (result.isConfirmed) {
-        const key = Date.now();
-        const fileName = file.name.split(".txt")[0];
-        const fileRef = ref(storage, `texts/${fileName}:${key}.txt`);
-        await uploadBytes(fileRef, file).then(async (snapshot) => {
-          getDownloadURL(snapshot.ref).then(async (downUrl) => {
-            const brought = await fetch(
-              `${process.env.NEXT_PUBLIC_SITE}/api/text`,
-              {
-                method: "POST",
-                body: JSON.stringify({
-                  title: `${fileName}:${key}`,
-                  path: downUrl,
-                  order: key,
-                  realTitle: fileName,
-                  user: session?.user?.email,
-                  liked: false,
-                  parentId: id || "0",
-                }),
-                cache: "no-store",
-              },
-            );
-            const final = await brought.json();
-            if (final.message === "무라사키") {
-              const semi = datas.slice(0);
-              semi.unshift(final.data);
-              setDatas(semi);
-            } else {
-              toast({
-                title: "알림",
-                description: "업로드에 실패하셨습니다",
+    appSwal
+      .fire({
+        title: "파일 업로드",
+        text: "파일을 업로드 하시겠습니까?",
+        showCancelButton: true,
+        confirmButtonText: "확인",
+        cancelButtonText: "취소",
+        icon: icons.question.icon,
+        iconColor: icons.question.color,
+      })
+      .then(async (result) => {
+        if (result.isConfirmed) {
+          const key = Date.now();
+          const fileName = file.name.split(".txt")[0];
+          const fileRef = ref(storage, `texts/${fileName}:${key}.txt`);
+          await uploadBytes(fileRef, file).then(async (snapshot) => {
+            getDownloadURL(snapshot.ref).then(async (downUrl) => {
+              const brought = await fetch(
+                `${process.env.NEXT_PUBLIC_SITE}/api/text`,
+                {
+                  method: "POST",
+                  body: JSON.stringify({
+                    title: `${fileName}:${key}`,
+                    path: downUrl,
+                    order: key,
+                    realTitle: fileName,
+                    user: session?.user?.email,
+                    liked: false,
+                    parentId: id || "0",
+                  }),
+                  cache: "no-store",
+                },
+              );
+              const final = await brought.json();
+              if (final.message === "무라사키") {
+                const semi = datas.slice(0);
+                semi.unshift(final.data);
+                setDatas(semi);
+              } else {
+                toast({
+                  title: "알림",
+                  description: "업로드에 실패하셨습니다",
+                });
+                await fetch(`${process.env.NEXT_PUBLIC_SITE}/api/text/delete`, {
+                  method: "DELETE",
+                  body: JSON.stringify({
+                    id: "nope",
+                    title: `${fileName}:${key}`,
+                    email: session?.user?.email,
+                  }),
+                  cache: "no-store",
+                });
+              }
+              setLocation({
+                x: -1,
+                y: -1,
               });
-              await fetch(`${process.env.NEXT_PUBLIC_SITE}/api/text/delete`, {
-                method: "DELETE",
-                body: JSON.stringify({
-                  id: "nope",
-                  title: `${fileName}:${key}`,
-                  email: session?.user?.email,
-                }),
-                cache: "no-store",
-              });
-            }
-            setLocation({
-              x: -1,
-              y: -1,
             });
           });
-        });
-      }
-    });
+        }
+      });
   };
 
   const addWritten = async () => {
@@ -464,98 +469,104 @@ export default function UserPage({ id }: Props) {
   };
 
   const deleteWritten = async (id: string, title: string) => {
-    Swal.fire({
-      title: "삭제 확인 알림",
-      text: "해당 텍스트를 삭제하시겠습니까",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "확인",
-      cancelButtonText: "취소",
-    }).then(async (result) => {
-      if (!result.isConfirmed) return;
+    appSwal
+      .fire({
+        title: "삭제 확인 알림",
+        text: "해당 텍스트를 삭제하시겠습니까",
+        icon: icons.warning.icon,
+        iconColor: icons.warning.color,
+        showCancelButton: true,
+        confirmButtonText: "확인",
+        cancelButtonText: "취소",
+      })
+      .then(async (result) => {
+        if (!result.isConfirmed) return;
 
-      const prevDatas = [...datas];
-      const newDatas = datas.filter((item: any) => item.id !== id);
-      setDatas(newDatas);
+        const prevDatas = [...datas];
+        const newDatas = datas.filter((item: any) => item.id !== id);
+        setDatas(newDatas);
 
-      try {
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_SITE}/api/text/delete`,
-          {
-            method: "DELETE",
-            body: JSON.stringify({
-              id,
-              title,
-              email: session?.user?.email,
-            }),
-            cache: "no-store",
-          },
-        );
-        const final = await res.json();
+        try {
+          const res = await fetch(
+            `${process.env.NEXT_PUBLIC_SITE}/api/text/delete`,
+            {
+              method: "DELETE",
+              body: JSON.stringify({
+                id,
+                title,
+                email: session?.user?.email,
+              }),
+              cache: "no-store",
+            },
+          );
+          const final = await res.json();
 
-        if (!(final.message === "결과" && final.data.status === "성공")) {
+          if (!(final.message === "결과" && final.data.status === "성공")) {
+            setDatas(prevDatas);
+            toast({
+              title: "알림",
+              description: "삭제에 실패했습니다",
+            });
+          }
+        } catch (error) {
+          console.error(error);
           setDatas(prevDatas);
           toast({
             title: "알림",
-            description: "삭제에 실패했습니다",
+            description: "삭제 요청 중 오류가 발생했습니다",
           });
         }
-      } catch (error) {
-        console.error(error);
-        setDatas(prevDatas);
-        toast({
-          title: "알림",
-          description: "삭제 요청 중 오류가 발생했습니다",
-        });
-      }
-    });
+      });
   };
 
   const deleteFolder = async (id: string) => {
-    Swal.fire({
-      title: "삭제 확인 알림",
-      text: "해당 폴더를 삭제하시겠습니까",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "확인",
-      cancelButtonText: "취소",
-    }).then(async (result) => {
-      if (!result.isConfirmed) return;
+    appSwal
+      .fire({
+        title: "삭제 확인 알림",
+        text: "해당 폴더를 삭제하시겠습니까",
+        icon: icons.warning.icon,
+        iconColor: icons.warning.color,
+        showCancelButton: true,
+        confirmButtonText: "확인",
+        cancelButtonText: "취소",
+      })
+      .then(async (result) => {
+        if (!result.isConfirmed) return;
 
-      const prevFolders = [...folders];
-      const newFolders = folders.filter((item: any) => item.id !== id);
-      setFolders(newFolders);
+        const prevFolders = [...folders];
+        const newFolders = folders.filter((item: any) => item.id !== id);
+        setFolders(newFolders);
 
-      try {
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_SITE}/api/folder/delete`,
-          {
-            method: "DELETE",
-            body: JSON.stringify({
-              email: session?.user?.email,
-              id,
-            }),
-            cache: "no-store",
-          },
-        );
-        const final = await res.json();
+        try {
+          const res = await fetch(
+            `${process.env.NEXT_PUBLIC_SITE}/api/folder/delete`,
+            {
+              method: "DELETE",
+              body: JSON.stringify({
+                email: session?.user?.email,
+                id,
+              }),
+              cache: "no-store",
+            },
+          );
+          const final = await res.json();
 
-        if (!(final.message === "결과" && final.data.status === "성공")) {
+          if (!(final.message === "결과" && final.data.status === "성공")) {
+            setFolders(prevFolders);
+            toast({
+              title: "알림",
+              description: "삭제에 실패했습니다",
+            });
+          }
+        } catch (error) {
+          console.error(error);
           setFolders(prevFolders);
           toast({
             title: "알림",
-            description: "삭제에 실패했습니다",
+            description: "삭제 요청 중 오류가 발생했습니다",
           });
         }
-      } catch (error) {
-        console.error(error);
-        setFolders(prevFolders);
-        toast({
-          title: "알림",
-          description: "삭제 요청 중 오류가 발생했습니다",
-        });
-      }
-    });
+      });
   };
 
   const editTitle = async (id: string, newTitle: string) => {
@@ -676,12 +687,13 @@ export default function UserPage({ id }: Props) {
     folderId: string,
     folderTitle?: string,
   ) => {
-    const result = await Swal.fire({
+    const result = await appSwal.fire({
       title: "파일 이동",
       text: folderTitle
         ? `${title} 파일을 ${folderTitle} 폴더로 이동하시겠습니까?`
         : `${title} 파일을 이 폴더로 이동하시겠습니까?`,
-      icon: "question",
+      icon: icons.question.icon,
+      iconColor: icons.question.color,
       showCancelButton: true,
       confirmButtonText: "이동",
       cancelButtonText: "취소",
@@ -703,12 +715,13 @@ export default function UserPage({ id }: Props) {
       return;
     }
 
-    const result = await Swal.fire({
+    const result = await appSwal.fire({
       title: "폴더 이동",
       text: targetFolderTitle
         ? `${title} 폴더를 ${targetFolderTitle} 폴더로 이동하시겠습니까?`
         : `${title} 폴더를 이 폴더로 이동하시겠습니까?`,
-      icon: "question",
+      icon: icons.question.icon,
+      iconColor: icons.question.color,
       showCancelButton: true,
       confirmButtonText: "이동",
       cancelButtonText: "취소",

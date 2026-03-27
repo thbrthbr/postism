@@ -244,3 +244,83 @@ textarea {
   --primary: 210 40% 98%;
   --primary-foreground: 222.2 47.4% 11.2%;
 } */
+
+.app-swal-popup {
+  width: min(92vw, 420px);
+  border: 2px solid var(--color-primary);
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  padding: 1.25rem;
+}
+
+.app-swal-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.app-swal-title.lg {
+  font-size: 1.75rem !important; /* text-2xl */
+}
+.app-swal-title.xl {
+  font-size: 2rem !important; /* text-3xl 느낌 */
+}
+
+.app-swal-html {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--color-primary);
+  opacity: 0.85;
+}
+
+/* 버튼 영역 */
+.app-swal-actions {
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+/* 공통 버튼 */
+.app-swal-confirm,
+.app-swal-cancel {
+  border: 2px solid var(--color-primary);
+  border-radius: 9999px;
+  padding: 0.7rem 1.2rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  transition: all 0.15s ease;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* 확인 버튼 */
+.app-swal-confirm {
+  background: var(--color-primary);
+  color: var(--color-bg-primary);
+}
+
+/* 취소 버튼 */
+.app-swal-cancel {
+  background: transparent;
+  color: var(--color-primary);
+}
+
+/* hover */
+.app-swal-confirm:hover,
+.app-swal-cancel:hover {
+  transform: translateY(-1px);
+  opacity: 0.9;
+}
+
+/* input */
+.app-swal-input {
+  border: 2px solid var(--color-customBorder) !important;
+  border-radius: 14px !important;
+  background: transparent !important;
+  color: var(--color-primary) !important;
+  box-shadow: none !important;
+}
+
+/* backdrop blur */
+.swal2-backdrop-show {
+  backdrop-filter: blur(4px);
+}
