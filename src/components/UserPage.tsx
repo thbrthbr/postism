@@ -91,10 +91,30 @@ export default function UserPage({ id }: Props) {
     parentId: string;
   } | null>(null);
 
+  const contentAreaRef = useRef<HTMLDivElement | null>(null);
+
   const isAnyDragging = Boolean(
     draggingFileId || draggingFolderId || touchGhost || isDesktopFileDragging,
   );
   const isFileDragging = Boolean(draggingFileId || isDesktopFileDragging);
+
+  const getMenuPositionInContent = (e: React.MouseEvent | MouseEvent) => {
+    const container = contentAreaRef.current;
+
+    if (!container) {
+      return {
+        x: e.pageX,
+        y: e.pageY,
+      };
+    }
+
+    const rect = container.getBoundingClientRect();
+
+    return {
+      x: e.clientX - rect.left + container.scrollLeft,
+      y: e.clientY - rect.top + container.scrollTop,
+    };
+  };
 
   const resetDragVisualState = () => {
     setDraggingFileId(null);
@@ -889,6 +909,7 @@ export default function UserPage({ id }: Props) {
       )}
 
       <div
+        ref={contentAreaRef}
         className={`relative flex flex-col items-center justify-start overflow-y-auto transition-all duration-300 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
           isPreviewMode
             ? "order-2 h-1/2 w-full border-t-2 md:order-1 md:h-screen md:w-1/2 md:border-r-2 md:border-t-0"
@@ -906,6 +927,9 @@ export default function UserPage({ id }: Props) {
         }}
         onContextMenu={(e) => {
           e.preventDefault();
+
+          const pos = getMenuPositionInContent(e);
+
           setLocation2({
             x: -1,
             y: -1,
@@ -914,8 +938,8 @@ export default function UserPage({ id }: Props) {
             parentId: "",
           });
           setLocation({
-            x: e.pageX,
-            y: e.pageY,
+            x: pos.x,
+            y: pos.y,
           });
         }}
         onClick={(e) => {
@@ -1087,9 +1111,10 @@ export default function UserPage({ id }: Props) {
                             x: -1,
                             y: -1,
                           });
+                          const pos = getMenuPositionInContent(e);
                           setLocation2({
-                            x: e.pageX,
-                            y: e.pageY,
+                            x: pos.x,
+                            y: pos.y,
                             id: folder.id,
                             fileType: "folder",
                             parentId: folder.parentId,
@@ -1519,9 +1544,10 @@ export default function UserPage({ id }: Props) {
                             x: -1,
                             y: -1,
                           });
+                          const pos = getMenuPositionInContent(e);
                           setLocation2({
-                            x: e.pageX,
-                            y: e.pageY,
+                            x: pos.x,
+                            y: pos.y,
                             id: data.id,
                             fileType: "file",
                             parentId: data.parentId,
