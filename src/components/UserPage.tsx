@@ -56,6 +56,13 @@ export default function UserPage({ id }: Props) {
     type: "",
   });
   const [loadedParentId, setLoadedParentId] = useState("");
+  const [draggingFileId, setDraggingFileId] = useState<string | null>(null);
+  const [touchGhost, setTouchGhost] = useState<{
+    title: string;
+    x: number;
+    y: number;
+  } | null>(null);
+
   const router = useRouter();
 
   const touchDragRef = useRef<{
@@ -853,9 +860,18 @@ export default function UserPage({ id }: Props) {
                         style={{
                           backgroundColor:
                             dragOverFolderId === folder.id
-                              ? "rgba(0,0,255,0.1)"
+                              ? "rgba(0,0,255,0.12)"
                               : "var(--color-bg-primary)",
-                          transition: "background-color 0.2s ease",
+                          transition:
+                            "background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease",
+                          transform:
+                            dragOverFolderId === folder.id
+                              ? "scale(1.04)"
+                              : "scale(1)",
+                          boxShadow:
+                            dragOverFolderId === folder.id
+                              ? "0 0 0 2px rgba(59,130,246,0.6), 0 12px 28px rgba(0,0,0,0.12)"
+                              : "none",
                         }}
                         className="relative h-[160px] w-[112px] rounded-md border-2 border-customBorder sm:h-[200px] sm:w-[140px]"
                       >
@@ -1007,6 +1023,13 @@ export default function UserPage({ id }: Props) {
 
                         e.preventDefault();
 
+                        setDraggingFileId(t.fileId);
+                        setTouchGhost({
+                          title: t.title,
+                          x: e.clientX,
+                          y: e.clientY,
+                        });
+
                         const el = document.elementFromPoint(
                           e.clientX,
                           e.clientY,
@@ -1053,6 +1076,8 @@ export default function UserPage({ id }: Props) {
                           e.currentTarget as HTMLDivElement
                         ).releasePointerCapture?.(e.pointerId);
                         touchDragRef.current = null;
+                        setDraggingFileId(null);
+                        setTouchGhost(null);
                         setDragOverFolderId(null);
                       }}
                       onPointerCancel={(e) => {
@@ -1060,6 +1085,8 @@ export default function UserPage({ id }: Props) {
                           e.currentTarget as HTMLDivElement
                         ).releasePointerCapture?.(e.pointerId);
                         touchDragRef.current = null;
+                        setDraggingFileId(null);
+                        setTouchGhost(null);
                         setDragOverFolderId(null);
                       }}
                       onClick={() => {
@@ -1093,14 +1120,26 @@ export default function UserPage({ id }: Props) {
                           e.dataTransfer.setData("file-id", data.id);
                           e.dataTransfer.setData("file-title", data.realTitle);
                           e.dataTransfer.setData("file-parent", data.parentId);
+                          setDraggingFileId(data.id);
                         }}
                         onDragEnd={(e: React.DragEvent<HTMLDivElement>) => {
+                          setDraggingFileId(null);
                           setDragOverFolderId(null);
                         }}
                         style={{
                           backgroundColor: "var(--color-bg-primary)",
-                          transition: "background-color 0.7s ease",
+                          transition:
+                            "background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease",
                           touchAction: "none",
+                          opacity: draggingFileId === data.id ? 0.35 : 1,
+                          transform:
+                            draggingFileId === data.id
+                              ? "scale(0.96)"
+                              : "scale(1)",
+                          boxShadow:
+                            draggingFileId === data.id
+                              ? "0 10px 24px rgba(0,0,0,0.18)"
+                              : "none",
                         }}
                         className="relative h-[160px] w-[112px] rounded-md border-2 border-customBorder sm:h-[200px] sm:w-[140px]"
                       >
@@ -1188,6 +1227,27 @@ export default function UserPage({ id }: Props) {
           </>
         )}
       </div>
+      {touchGhost && (
+        <div
+          className="pointer-events-none fixed z-[9999] -translate-x-1/2 -translate-y-1/2"
+          style={{
+            left: touchGhost.x,
+            top: touchGhost.y - 18,
+          }}
+        >
+          <div
+            className="max-w-[160px] rounded-md border-2 px-3 py-2 text-sm shadow-2xl"
+            style={{
+              backgroundColor: "var(--color-bg-primary)",
+              color: "var(--color-primary)",
+              borderColor: "var(--color-customBorder)",
+              opacity: 0.95,
+            }}
+          >
+            <div className="truncate">{touchGhost.title}</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
