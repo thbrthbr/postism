@@ -194,13 +194,13 @@ export default function SearchMenu({
   return (
     <div
       ref={panelRef}
-      className="fixed z-[10020] overflow-hidden rounded-2xl border-2 shadow-2xl"
+      className={`fixed z-[10020] flex flex-col overflow-hidden rounded-2xl border-2 shadow-2xl ${placementClass}`}
       style={{
         left: panelPosition.left,
         top: panelPosition.top,
         width: panelWidth,
         maxWidth: "calc(100vw - 16px)",
-        maxHeight: "min(55vh, 420px)",
+        height: isMobile ? "min(55vh, 300px)" : "min(70vh, 300px)",
         backgroundColor: "var(--color-bg-primary)",
         borderColor: "var(--color-customBorder)",
         color: "var(--color-primary)",
@@ -264,7 +264,7 @@ export default function SearchMenu({
         })}
       </div>
 
-      <div className="max-h-[min(55vh,420px)] overflow-y-auto p-2 [-ms-overflow-style:none] [scrollbar-width:none] md:max-h-[420px] [&::-webkit-scrollbar]:hidden">
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3 pt-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {loading ? (
           <div className="p-4 text-sm opacity-70">불러오는 중...</div>
         ) : !query.trim() ? (
