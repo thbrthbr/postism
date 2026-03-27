@@ -1,7 +1,9 @@
 import { signOut, useSession } from "next-auth/react";
 import ThemeSelect from "./ThemeSelect";
+import SearchMenu from "@/components/SearchMenu";
+import { IoSearch } from "react-icons/io5";
 import { TbFolderSymlink } from "react-icons/tb";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 interface Props {
@@ -54,6 +56,11 @@ export default function Menu({
     depth: 0,
     childrenArr: [],
   });
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const searchButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [searchAnchorRect, setSearchAnchorRect] = useState<DOMRect | null>(
+    null,
+  );
 
   const { x, y, id, fileType, parentId } = location;
 
@@ -163,6 +170,20 @@ export default function Menu({
             <button onClick={customFunctions?.addFolder}>폴더 추가</button>
           </div>
           <div>
+            <button
+              ref={searchButtonRef}
+              onClick={(e) => {
+                e.stopPropagation();
+                const rect =
+                  searchButtonRef.current?.getBoundingClientRect() ?? null;
+                setSearchAnchorRect(rect);
+                setIsSearchOpen((prev) => !prev);
+              }}
+            >
+              검색
+            </button>
+          </div>
+          <div>
             <button onClick={() => signOut()}>로그아웃</button>
           </div>
         </>
@@ -211,6 +232,16 @@ export default function Menu({
             <ThemeSelect />
           </div>
         </>
+      )}
+      {type !== "onFile" && (
+        <SearchMenu
+          email={session?.user?.email}
+          isOpen={isSearchOpen}
+          anchorRect={searchAnchorRect}
+          onClose={() => setIsSearchOpen(false)}
+          onOpenFile={(fileId) => router.push(`/text/${fileId}`)}
+          onOpenFolder={(folderId) => router.push(`/folder/${folderId}`)}
+        />
       )}
     </div>
   );

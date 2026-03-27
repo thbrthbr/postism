@@ -425,3 +425,174 @@ export async function getUserPath(user) {
   });
   return fetchedPath;
 }
+
+export function formatCreatedAtFromOrder(order) {
+  const ts = Number(order);
+  if (!Number.isFinite(ts)) return "날짜 없음";
+
+  const date = new Date(ts);
+  if (Number.isNaN(date.getTime())) return "날짜 없음";
+
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  const hh = String(date.getHours()).padStart(2, "0");
+  const min = String(date.getMinutes()).padStart(2, "0");
+
+  return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
+}
+
+export function normalizeSearchText(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
+
+export function getSearchScore(title, queryText) {
+  const normalizedTitle = normalizeSearchText(title);
+  const normalizedQuery = normalizeSearchText(queryText);
+
+  if (!normalizedQuery) return -1;
+  if (normalizedTitle === normalizedQuery) return 3000;
+  if (normalizedTitle.startsWith(normalizedQuery)) return 2000;
+  if (normalizedTitle.includes(normalizedQuery)) return 1000;
+  return -1;
+}
+
+export function buildPathTextFromFolderMap(parentId, folderMap) {
+  const names = [];
+  let currentId = parentId;
+
+  while (currentId && currentId !== "0") {
+    const folder = folderMap[currentId];
+    if (!folder) break;
+    names.push(folder.realTitle);
+    currentId = folder.parentId;
+  }
+
+  return names.reverse().join(" / ");
+}
+
+export async function getAllFoldersByUser(user) {
+  const querySnapshot = await getDocs(
+    query(collection(db, "folder"), where("user", "==", user)),
+  );
+
+  if (querySnapshot.empty) {
+    return [];
+  }
+
+  const fetchedFolders = [];
+  querySnapshot.forEach((doc) => {
+    fetchedFolders.push({
+      id: doc.id,
+      liked: doc.data()["liked"],
+      parentId: doc.data()["parentId"],
+      realTitle: doc.data()["realTitle"],
+      title: doc.data()["title"],
+      order: doc.data()["order"],
+      user: doc.data()["user"],
+    });
+  });
+
+  return fetchedFolders;
+}
+
+export async function getAllTextsByUser(user) {
+  const querySnapshot = await getDocs(
+    query(collection(db, "text"), where("user", "==", user)),
+  );
+
+  if (querySnapshot.empty) {
+    return [];
+  }
+
+  const fetchedTexts = [];
+  querySnapshot.forEach((doc) => {
+    fetchedTexts.push({
+      id: doc.id,
+      liked: doc.data()["liked"],
+      parentId: doc.data()["parentId"],
+      realTitle: doc.data()["realTitle"],
+      title: doc.data()["title"],
+      path: doc.data()["path"],
+      order: doc.data()["order"],
+      user: doc.data()["user"],
+    });
+  });
+
+  return fetchedTexts;
+}
+
+/**
+ * type: "all" | "file" | "folder"
+ */
+export async function searchUserItems({ user, queryText, type = "all" }) {
+  const normalizedQuery = normalizeSearchText(queryText);
+
+  if (!user || !normalizedQuery) {
+    return [];
+  }
+
+  const [folders, texts] = await Promise.all([
+    getAllFoldersByUser(user),
+    getAllTextsByUser(user),
+  ]);
+
+  const folderMap = {};
+  for (const folder of folders) {
+    folderMap[folder.id] = folder;
+  }
+
+  const folderResults =
+    type === "all" || type === "folder"
+      ? folders
+          .map((folder) => {
+            const score = getSearchScore(folder.realTitle, normalizedQuery);
+            if (score < 0) return null;
+
+            return {
+              id: folder.id,
+              type: "folder",
+              realTitle: folder.realTitle,
+              parentId: folder.parentId,
+              order: Number(folder.order),
+              liked: folder.liked,
+              user: folder.user,
+              createdAtText: formatCreatedAtFromOrder(folder.order),
+              pathText: buildPathTextFromFolderMap(folder.parentId, folderMap),
+              score,
+            };
+          })
+          .filter(Boolean)
+      : [];
+
+  const textResults =
+    type === "all" || type === "file"
+      ? texts
+          .map((text) => {
+            const score = getSearchScore(text.realTitle, normalizedQuery);
+            if (score < 0) return null;
+
+            return {
+              id: text.id,
+              type: "file",
+              realTitle: text.realTitle,
+              parentId: text.parentId,
+              order: Number(text.order),
+              liked: text.liked,
+              user: text.user,
+              path: text.path,
+              createdAtText: formatCreatedAtFromOrder(text.order),
+              pathText: buildPathTextFromFolderMap(text.parentId, folderMap),
+              score,
+            };
+          })
+          .filter(Boolean)
+      : [];
+
+  return [...folderResults, ...textResults].sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return Number(b.order) - Number(a.order);
+  });
+}
