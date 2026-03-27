@@ -623,7 +623,21 @@ export default function UserPage({ id }: Props) {
     title: string,
     parentId: string,
     folderId: string,
+    folderTitle?: string,
   ) => {
+    const result = await Swal.fire({
+      title: "파일 이동",
+      text: folderTitle
+        ? `${title} 파일을 ${folderTitle} 폴더로 이동하시겠습니까?`
+        : `${title} 파일을 이 폴더로 이동하시겠습니까?`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "이동",
+      cancelButtonText: "취소",
+    });
+
+    if (!result.isConfirmed) return;
+
     await editPath(fileId, "file", folderId, parentId);
   };
 
@@ -632,6 +646,7 @@ export default function UserPage({ id }: Props) {
     title: string,
     parentId: string,
     targetFolderId: string,
+    targetFolderTitle?: string,
   ) => {
     if (folderId === targetFolderId) {
       toast({
@@ -640,6 +655,19 @@ export default function UserPage({ id }: Props) {
       });
       return;
     }
+
+    const result = await Swal.fire({
+      title: "폴더 이동",
+      text: targetFolderTitle
+        ? `${title} 폴더를 ${targetFolderTitle} 폴더로 이동하시겠습니까?`
+        : `${title} 폴더를 이 폴더로 이동하시겠습니까?`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "이동",
+      cancelButtonText: "취소",
+    });
+
+    if (!result.isConfirmed) return;
 
     await editPath(folderId, "folder", targetFolderId, parentId);
   };
@@ -861,13 +889,20 @@ export default function UserPage({ id }: Props) {
                         }
 
                         if (dragType === "file") {
-                          moveFileToFolder(itemId, title, parentId, folder.id);
+                          moveFileToFolder(
+                            itemId,
+                            title,
+                            parentId,
+                            folder.id,
+                            folder.realTitle,
+                          );
                         } else if (dragType === "folder") {
                           moveFolderToFolder(
                             itemId,
                             title,
                             parentId,
                             folder.id,
+                            folder.realTitle,
                           );
                         }
 
@@ -969,11 +1004,15 @@ export default function UserPage({ id }: Props) {
 
                           const targetFolderId = folderEl?.dataset.folderId;
                           if (targetFolderId && targetFolderId !== t.itemId) {
+                            const targetFolder = folders.find(
+                              (f: any) => f.id === targetFolderId,
+                            );
                             moveFolderToFolder(
                               t.itemId,
                               t.title,
                               t.parentId,
                               targetFolderId,
+                              targetFolder?.realTitle,
                             );
                           }
                         }
@@ -1233,11 +1272,15 @@ export default function UserPage({ id }: Props) {
 
                           const folderId = folderEl?.dataset.folderId;
                           if (folderId) {
+                            const targetFolder = folders.find(
+                              (f: any) => f.id === folderId,
+                            );
                             moveFileToFolder(
                               t.itemId,
                               t.title,
                               t.parentId,
                               folderId,
+                              targetFolder?.realTitle,
                             );
                           }
                         }
