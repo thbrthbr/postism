@@ -268,12 +268,9 @@ export default function SearchMenu({
         {loading ? (
           <div className="p-4 text-sm opacity-70">불러오는 중...</div>
         ) : !query.trim() ? (
-          <div className="p-4 text-sm opacity-70">
-            제목으로 검색하거라. 같은 이름이 있을 수 있으니 생성시각도 함께
-            보여주느니라.
-          </div>
+          <div className="p-4 text-sm opacity-70">제목으로 검색</div>
         ) : results.length === 0 ? (
-          <div className="p-4 text-sm opacity-70">검색 결과가 없느니라.</div>
+          <div className="p-4 text-sm opacity-70">검색 결과가 없습니다.</div>
         ) : (
           <div className="flex flex-col gap-2">
             {results.map((item) => (
