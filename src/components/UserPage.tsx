@@ -5,20 +5,32 @@ import { storage } from "../firebase/firebaseConfig";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { usePathname, useRouter } from "next/navigation";
 import { IoIosClose } from "react-icons/io";
-import { FaArrowLeft, FaRegFolderOpen } from "react-icons/fa";
+import { FaArrowLeft, FaRegFolderOpen, FaRegTrashAlt } from "react-icons/fa";
+import { IoClose } from "react-icons/io5";
+import { BiSelectMultiple } from "react-icons/bi";
 import Menu from "@/components/menu";
 import Spinner from "@/components/spinner";
 import SpinnerMini from "./spinner-mini";
 import { AnimatePresence, motion } from "framer-motion";
 import { useSession } from "next-auth/react";
 import { useToast } from "@/hooks/use-toast";
-import Swal from "sweetalert2";
 import Heart from "@/components/Heart";
 import { appSwal, icons } from "@/lib/swal";
+import JSZip from "jszip";
+import CustomCheckbox from "./CustomCheckbox";
+import { LuDownload } from "react-icons/lu";
+import { TbFolderSymlink } from "react-icons/tb";
 
 interface Props {
   id?: string;
 }
+
+type SelectedItem = {
+  id: string;
+  type: "file" | "folder";
+  title: string;
+  parentId: string;
+};
 
 export default function UserPage({ id }: Props) {
   const { toast } = useToast();
@@ -41,6 +53,16 @@ export default function UserPage({ id }: Props) {
     fileType: "",
     parentId: "",
   });
+
+  const [bulkMoveMenuLocation, setBulkMoveMenuLocation] = useState({
+    x: -1,
+    y: -1,
+    id: "",
+    fileType: "",
+    parentId: "",
+  });
+
+  const bulkMoveButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const [modSwitch, setModSwitch] = useState(-1);
   const [previousEmail, setPreviousEmail] = useState<string | null | undefined>(
@@ -79,6 +101,10 @@ export default function UserPage({ id }: Props) {
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [isDesktopFileDragging, setIsDesktopFileDragging] = useState(false);
 
+  const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
+  const [isBulkMoveMode, setIsBulkMoveMode] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+
   const router = useRouter();
 
   const touchDragRef = useRef<{
@@ -99,6 +125,61 @@ export default function UserPage({ id }: Props) {
   );
   const isFileDragging = Boolean(draggingFileId || isDesktopFileDragging);
 
+  const isSelected = (id: string, type: "file" | "folder") => {
+    return selectedItems.some((item) => item.id === id && item.type === type);
+  };
+
+  const toggleSelectedItem = (item: SelectedItem) => {
+    setSelectedItems((prev) => {
+      const exists = prev.some(
+        (selected) => selected.id === item.id && selected.type === item.type,
+      );
+
+      if (exists) {
+        return prev.filter(
+          (selected) =>
+            !(selected.id === item.id && selected.type === item.type),
+        );
+      }
+
+      return [...prev, item];
+    });
+  };
+
+  const clearSelectedItems = () => {
+    setSelectedItems([]);
+    setIsBulkMoveMode(false);
+    setBulkMoveMenuLocation({
+      x: -1,
+      y: -1,
+      id: "",
+      fileType: "",
+      parentId: "",
+    });
+  };
+
+  const selectAllItemsInCurrentPage = () => {
+    const selectableFolders = folders
+      .filter((folder: any) => folder.id !== "temp")
+      .map((folder: any) => ({
+        id: folder.id,
+        type: "folder" as const,
+        title: folder.realTitle,
+        parentId: folder.parentId,
+      }));
+
+    const selectableFiles = datas
+      .filter((data: any) => data.id !== "temp")
+      .map((data: any) => ({
+        id: data.id,
+        type: "file" as const,
+        title: data.realTitle,
+        parentId: data.parentId,
+      }));
+
+    setSelectedItems([...selectableFolders, ...selectableFiles]);
+  };
+
   const getMenuPositionInContent = (e: React.MouseEvent | MouseEvent) => {
     const container = contentAreaRef.current;
 
@@ -117,6 +198,26 @@ export default function UserPage({ id }: Props) {
     };
   };
 
+  const getElementPositionInContent = (element: HTMLElement) => {
+    const container = contentAreaRef.current;
+
+    if (!container) {
+      const rect = element.getBoundingClientRect();
+      return {
+        x: rect.left,
+        y: rect.bottom,
+      };
+    }
+
+    const containerRect = container.getBoundingClientRect();
+    const rect = element.getBoundingClientRect();
+
+    return {
+      x: rect.left - containerRect.left + container.scrollLeft,
+      y: rect.bottom - containerRect.top + container.scrollTop + 8,
+    };
+  };
+
   const resetDragVisualState = () => {
     setDraggingFileId(null);
     setDraggingFolderId(null);
@@ -129,6 +230,199 @@ export default function UserPage({ id }: Props) {
     setPreviewTarget({ id: fileId, title });
     setIsPreviewMode(true);
     resetDragVisualState();
+  };
+
+  const triggerDownloadBlob = (blob: Blob, fileName: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const getTextsByParentId = async (parentId: string) => {
+    const result = await fetch(
+      `${process.env.NEXT_PUBLIC_SITE}/api/text?id=${session?.user?.email}:${parentId}`,
+      {
+        method: "GET",
+        cache: "no-store",
+      },
+    );
+
+    const final = await result.json();
+    return final.data || [];
+  };
+
+  const getFoldersByParentId = async (parentId: string) => {
+    const result = await fetch(
+      `${process.env.NEXT_PUBLIC_SITE}/api/folder?id=${session?.user?.email}:${parentId}`,
+      {
+        method: "GET",
+        cache: "no-store",
+      },
+    );
+
+    const final = await result.json();
+    return final.data || [];
+  };
+
+  const makeUniqueName = (fileName: string, usedNames: Set<string>) => {
+    if (!usedNames.has(fileName)) {
+      usedNames.add(fileName);
+      return fileName;
+    }
+
+    const dotIndex = fileName.lastIndexOf(".");
+    const hasExt = dotIndex > 0;
+    const name = hasExt ? fileName.slice(0, dotIndex) : fileName;
+    const ext = hasExt ? fileName.slice(dotIndex) : "";
+
+    let count = 1;
+    let nextName = `${name} (${count})${ext}`;
+
+    while (usedNames.has(nextName)) {
+      count += 1;
+      nextName = `${name} (${count})${ext}`;
+    }
+
+    usedNames.add(nextName);
+    return nextName;
+  };
+
+  const addFilesToZipFolder = async (zipFolder: JSZip, files: any[]) => {
+    const usedNames = new Set<string>();
+
+    for (const file of files) {
+      if (!file?.path) continue;
+
+      const response = await fetch(file.path, {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error(`파일 다운로드 실패: ${file.realTitle}`);
+      }
+
+      const text = await response.text();
+      const safeName = makeUniqueName(`${file.realTitle}.txt`, usedNames);
+
+      zipFolder.file(safeName, text);
+    }
+  };
+
+  const addFolderRecursivelyToZip = async (
+    parentZip: JSZip,
+    folderId: string,
+    folderName: string,
+  ) => {
+    const folderZip = parentZip.folder(folderName);
+
+    if (!folderZip) {
+      throw new Error(`zip 폴더 생성 실패: ${folderName}`);
+    }
+
+    const childFiles = await getTextsByParentId(folderId);
+    const childFolders = await getFoldersByParentId(folderId);
+
+    await addFilesToZipFolder(folderZip, childFiles);
+
+    const usedFolderNames = new Set<string>();
+
+    for (const childFolder of childFolders) {
+      const safeFolderName = makeUniqueName(
+        childFolder.realTitle,
+        usedFolderNames,
+      );
+
+      await addFolderRecursivelyToZip(
+        folderZip,
+        childFolder.id,
+        safeFolderName,
+      );
+    }
+  };
+
+  const downloadSelectedItems = async () => {
+    if (selectedItems.length === 0) {
+      toast({
+        title: "알림",
+        description: "선택된 항목이 없습니다",
+      });
+      return;
+    }
+
+    if (!session?.user?.email) {
+      toast({
+        title: "알림",
+        description: "로그인 정보가 필요합니다",
+      });
+      return;
+    }
+
+    const result = await appSwal.fire({
+      title: "다운로드 확인",
+      text: `${selectedItems.length}개 항목을 다운로드하시겠습니까?`,
+      icon: icons.question.icon,
+      iconColor: icons.question.color,
+      showCancelButton: true,
+      confirmButtonText: "다운로드",
+      cancelButtonText: "취소",
+    });
+
+    if (!result.isConfirmed) return;
+
+    setIsDownloading(true);
+
+    const selectedFiles = selectedItems.filter((item) => item.type === "file");
+    const selectedFolders = selectedItems.filter(
+      (item) => item.type === "folder",
+    );
+
+    try {
+      const zip = new JSZip();
+
+      await addFilesToZipFolder(
+        zip,
+        selectedFiles
+          .map((item) => datas.find((data: any) => data.id === item.id))
+          .filter(Boolean),
+      );
+
+      const usedRootFolderNames = new Set<string>();
+
+      for (const folderItem of selectedFolders) {
+        const folderData = folders.find(
+          (folder: any) => folder.id === folderItem.id,
+        );
+
+        const folderName = makeUniqueName(
+          folderData?.realTitle || folderItem.title,
+          usedRootFolderNames,
+        );
+
+        await addFolderRecursivelyToZip(zip, folderItem.id, folderName);
+      }
+
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+
+      triggerDownloadBlob(zipBlob, `selected-items-${Date.now()}.zip`);
+
+      toast({
+        title: "알림",
+        description: "선택한 항목들을 zip으로 다운로드했습니다",
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "알림",
+        description: "일괄 다운로드 중 오류가 발생했습니다",
+      });
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const uploadWritten = async () => {
@@ -483,8 +777,14 @@ export default function UserPage({ id }: Props) {
         if (!result.isConfirmed) return;
 
         const prevDatas = [...datas];
+        const prevSelectedItems = [...selectedItems];
+
         const newDatas = datas.filter((item: any) => item.id !== id);
         setDatas(newDatas);
+
+        setSelectedItems((prev) =>
+          prev.filter((item) => !(item.type === "file" && item.id === id)),
+        );
 
         try {
           const res = await fetch(
@@ -503,6 +803,7 @@ export default function UserPage({ id }: Props) {
 
           if (!(final.message === "결과" && final.data.status === "성공")) {
             setDatas(prevDatas);
+            setSelectedItems(prevSelectedItems);
             toast({
               title: "알림",
               description: "삭제에 실패했습니다",
@@ -511,6 +812,7 @@ export default function UserPage({ id }: Props) {
         } catch (error) {
           console.error(error);
           setDatas(prevDatas);
+          setSelectedItems(prevSelectedItems);
           toast({
             title: "알림",
             description: "삭제 요청 중 오류가 발생했습니다",
@@ -534,8 +836,14 @@ export default function UserPage({ id }: Props) {
         if (!result.isConfirmed) return;
 
         const prevFolders = [...folders];
+        const prevSelectedItems = [...selectedItems];
+
         const newFolders = folders.filter((item: any) => item.id !== id);
         setFolders(newFolders);
+
+        setSelectedItems((prev) =>
+          prev.filter((item) => !(item.type === "folder" && item.id === id)),
+        );
 
         try {
           const res = await fetch(
@@ -553,6 +861,7 @@ export default function UserPage({ id }: Props) {
 
           if (!(final.message === "결과" && final.data.status === "성공")) {
             setFolders(prevFolders);
+            setSelectedItems(prevSelectedItems);
             toast({
               title: "알림",
               description: "삭제에 실패했습니다",
@@ -561,6 +870,7 @@ export default function UserPage({ id }: Props) {
         } catch (error) {
           console.error(error);
           setFolders(prevFolders);
+          setSelectedItems(prevSelectedItems);
           toast({
             title: "알림",
             description: "삭제 요청 중 오류가 발생했습니다",
@@ -632,7 +942,7 @@ export default function UserPage({ id }: Props) {
         title: "알림",
         description: "같은 경로로는 이동할 수 없습니다",
       });
-      return;
+      return false;
     }
     const result = await fetch(
       `${process.env.NEXT_PUBLIC_SITE}/api/children/edit-path`,
@@ -677,7 +987,9 @@ export default function UserPage({ id }: Props) {
         fileType: "",
         parentId: "",
       });
+      return true;
     }
+    return false;
   };
 
   const moveFileToFolder = async (
@@ -701,7 +1013,13 @@ export default function UserPage({ id }: Props) {
 
     if (!result.isConfirmed) return;
 
-    await editPath(fileId, "file", folderId, parentId);
+    const moved = await editPath(fileId, "file", folderId, parentId);
+
+    if (moved) {
+      setSelectedItems((prev) =>
+        prev.filter((item) => !(item.type === "file" && item.id === fileId)),
+      );
+    }
   };
 
   const moveFolderToFolder = async (
@@ -729,7 +1047,235 @@ export default function UserPage({ id }: Props) {
 
     if (!result.isConfirmed) return;
 
-    await editPath(folderId, "folder", targetFolderId, parentId);
+    const moved = await editPath(folderId, "folder", targetFolderId, parentId);
+
+    if (moved) {
+      setSelectedItems((prev) =>
+        prev.filter(
+          (item) => !(item.type === "folder" && item.id === folderId),
+        ),
+      );
+    }
+  };
+  const deleteSelectedItems = async () => {
+    if (selectedItems.length === 0) {
+      toast({
+        title: "알림",
+        description: "선택된 항목이 없습니다",
+      });
+      return;
+    }
+
+    const result = await appSwal.fire({
+      title: "선택 항목 삭제",
+      text: `${selectedItems.length}개 항목을 삭제하시겠습니까?`,
+      icon: icons.warning.icon,
+      iconColor: icons.warning.color,
+      showCancelButton: true,
+      confirmButtonText: "삭제",
+      cancelButtonText: "취소",
+    });
+
+    if (!result.isConfirmed) return;
+
+    const prevDatas = [...datas];
+    const prevFolders = [...folders];
+
+    const selectedFileIds = selectedItems
+      .filter((item) => item.type === "file")
+      .map((item) => item.id);
+
+    const selectedFolderIds = selectedItems
+      .filter((item) => item.type === "folder")
+      .map((item) => item.id);
+
+    setDatas((prev: any[]) =>
+      prev.filter((item) => !selectedFileIds.includes(item.id)),
+    );
+    setFolders((prev: any[]) =>
+      prev.filter((item) => !selectedFolderIds.includes(item.id)),
+    );
+
+    try {
+      const requests = [
+        ...selectedItems
+          .filter((item) => item.type === "file")
+          .map((item) =>
+            fetch(`${process.env.NEXT_PUBLIC_SITE}/api/text/delete`, {
+              method: "DELETE",
+              body: JSON.stringify({
+                id: item.id,
+                title: datas.find((d: any) => d.id === item.id)?.title,
+                email: session?.user?.email,
+              }),
+              cache: "no-store",
+            }),
+          ),
+        ...selectedItems
+          .filter((item) => item.type === "folder")
+          .map((item) =>
+            fetch(`${process.env.NEXT_PUBLIC_SITE}/api/folder/delete`, {
+              method: "DELETE",
+              body: JSON.stringify({
+                id: item.id,
+                email: session?.user?.email,
+              }),
+              cache: "no-store",
+            }),
+          ),
+      ];
+
+      const responses = await Promise.all(requests);
+      const results = await Promise.all(responses.map((res) => res.json()));
+
+      const failed = results.some(
+        (final: any) =>
+          !(final?.message === "결과" && final?.data?.status === "성공"),
+      );
+
+      if (failed) {
+        setDatas(prevDatas);
+        setFolders(prevFolders);
+        toast({
+          title: "알림",
+          description: "일부 항목 삭제에 실패했습니다",
+        });
+        return;
+      }
+
+      clearSelectedItems();
+
+      toast({
+        title: "알림",
+        description: "선택 항목이 삭제되었습니다",
+      });
+    } catch (error) {
+      console.error(error);
+      setDatas(prevDatas);
+      setFolders(prevFolders);
+      toast({
+        title: "알림",
+        description: "일괄 삭제 중 오류가 발생했습니다",
+      });
+    }
+  };
+
+  const moveSelectedItemsToFolder = async (
+    targetFolderId: string,
+    targetFolderTitle?: string,
+  ) => {
+    if (selectedItems.length === 0) {
+      toast({
+        title: "알림",
+        description: "선택된 항목이 없습니다",
+      });
+      return;
+    }
+
+    if (
+      selectedItems.some(
+        (item) => item.type === "folder" && item.id === targetFolderId,
+      )
+    ) {
+      toast({
+        title: "알림",
+        description: "자기 자신 폴더로는 이동할 수 없습니다",
+      });
+      return;
+    }
+
+    const result = await appSwal.fire({
+      title: "선택 항목 이동",
+      text: targetFolderTitle
+        ? `${selectedItems.length}개 항목을 ${targetFolderTitle} 폴더로 이동하시겠습니까?`
+        : `${selectedItems.length}개 항목을 이 폴더로 이동하시겠습니까?`,
+      icon: icons.question.icon,
+      iconColor: icons.question.color,
+      showCancelButton: true,
+      confirmButtonText: "이동",
+      cancelButtonText: "취소",
+    });
+
+    if (!result.isConfirmed) return;
+
+    const prevDatas = [...datas];
+    const prevFolders = [...folders];
+
+    try {
+      const responses = await Promise.all(
+        selectedItems.map((item) =>
+          fetch(`${process.env.NEXT_PUBLIC_SITE}/api/children/edit-path`, {
+            method: "POST",
+            body: JSON.stringify({
+              id: item.id,
+              type: item.type,
+              newPath: targetFolderId,
+              email: session?.user?.email,
+            }),
+            cache: "no-store",
+          }).then((res) => res.json()),
+        ),
+      );
+
+      const failed = responses.some(
+        (final: any) => final?.message !== "경로 수정 성공",
+      );
+
+      if (failed) {
+        setDatas(prevDatas);
+        setFolders(prevFolders);
+        toast({
+          title: "알림",
+          description: "일부 항목 이동에 실패했습니다",
+        });
+        return;
+      }
+
+      const selectedFileIds = selectedItems
+        .filter((item) => item.type === "file")
+        .map((item) => item.id);
+
+      const selectedFolderIds = selectedItems
+        .filter((item) => item.type === "folder")
+        .map((item) => item.id);
+
+      setDatas((prev: any[]) =>
+        prev.filter((item) => !selectedFileIds.includes(item.id)),
+      );
+      setFolders((prev: any[]) =>
+        prev.filter((item) => !selectedFolderIds.includes(item.id)),
+      );
+
+      clearSelectedItems();
+      setLocation2({
+        x: -1,
+        y: -1,
+        id: "",
+        fileType: "",
+        parentId: "",
+      });
+
+      setBulkMoveMenuLocation({
+        x: -1,
+        y: -1,
+        id: "",
+        fileType: "",
+        parentId: "",
+      });
+
+      toast({
+        title: "알림",
+        description: "선택 항목이 이동되었습니다",
+      });
+    } catch (error) {
+      console.error(error);
+      setDatas(prevDatas);
+      setFolders(prevFolders);
+      toast({
+        title: "알림",
+        description: "일괄 이동 중 오류가 발생했습니다",
+      });
+    }
   };
 
   const getParentId = async () => {
@@ -819,6 +1365,29 @@ export default function UserPage({ id }: Props) {
 
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden md:flex-row">
+      {isDownloading && (
+        <div
+          className="fixed inset-0 z-[10000] flex flex-col items-center justify-center gap-4"
+          style={{
+            backgroundColor: "rgba(0, 0, 0, 0.35)",
+            backdropFilter: "blur(2px)",
+          }}
+        >
+          <div
+            className="flex min-w-[220px] flex-col items-center justify-center gap-4 rounded-2xl border-2 px-8 py-7 shadow-2xl"
+            style={{
+              backgroundColor: "var(--color-bg-primary)",
+              borderColor: "var(--color-customBorder)",
+              color: "var(--color-primary)",
+            }}
+          >
+            <SpinnerMini />
+            <div className="text-center text-sm sm:text-base">
+              선택된 항목을 압축하는 중...
+            </div>
+          </div>
+        </div>
+      )}
       {isPreviewMode && (
         <div
           className="relative z-10 order-1 flex h-1/2 w-full flex-col overflow-hidden border-b-2 md:order-2 md:h-screen md:w-1/2 md:border-b-0 md:border-l-2"
@@ -968,15 +1537,23 @@ export default function UserPage({ id }: Props) {
             fileType: "",
             parentId: "",
           });
-          if (modSwitch !== -1)
-            if (modSwitch >= 0)
+          setBulkMoveMenuLocation({
+            x: -1,
+            y: -1,
+            id: "",
+            fileType: "",
+            parentId: "",
+          });
+          if (modSwitch !== -1) {
+            if (modSwitch >= 0) {
               editTitle(currentDataId, datas[modSwitch].realTitle);
-            else {
+            } else {
               editTitle(
                 currentDataId,
                 folders[modSwitch / 1000 / -1 - 1].realTitle,
               );
             }
+          }
         }}
       >
         {location.x !== -1 &&
@@ -999,6 +1576,7 @@ export default function UserPage({ id }: Props) {
               }}
             />
           ))}
+
         {location2.x !== -1 &&
           (owner == session?.user?.email || id == undefined) && (
             <Menu
@@ -1008,9 +1586,145 @@ export default function UserPage({ id }: Props) {
                 addText: uploadWritten,
                 addFolder: addFolders,
                 editPath: editPath,
+                moveSelectedItemsToFolder: moveSelectedItemsToFolder,
+                selectedItems,
+                clearSelectedItems,
               }}
             />
           )}
+
+        {bulkMoveMenuLocation.x !== -1 && selectedItems.length > 0 && (
+          <Menu
+            type="onFile"
+            location={bulkMoveMenuLocation}
+            customFunctions={{
+              addText: uploadWritten,
+              addFolder: addFolders,
+              editPath: editPath,
+              moveSelectedItemsToFolder,
+              selectedItems,
+              clearSelectedItems,
+            }}
+          />
+        )}
+
+        {selectedItems.length > 0 && (
+          <div
+            className="sticky top-0 z-[60] mt-4 w-[calc(100%-2rem)] rounded-xl border-2 px-2 py-2 sm:px-4 sm:py-3"
+            style={{
+              borderColor: "var(--color-customBorder)",
+              backgroundColor: "var(--color-bg-primary)",
+              color: "var(--color-primary)",
+            }}
+          >
+            <div className="relative min-h-[56px] sm:min-h-0">
+              <div className="overflow-x-auto pr-[96px] [-ms-overflow-style:none] [scrollbar-width:none] sm:pr-0 [&::-webkit-scrollbar]:hidden">
+                <div className="flex min-w-max flex-nowrap items-center gap-1 sm:flex-wrap sm:justify-end sm:gap-2">
+                  <button
+                    disabled={isDownloading}
+                    className="h-8 shrink-0 rounded-md border px-2 py-1.5 text-[11px] disabled:opacity-50 sm:px-3 sm:py-1.5 sm:text-sm"
+                    style={{ borderColor: "var(--color-customBorder)" }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isDownloading) return;
+                      downloadSelectedItems();
+                    }}
+                  >
+                    {isDownloading ? (
+                      "다운로드 중..."
+                    ) : (
+                      <LuDownload className="font-bold" />
+                    )}
+                  </button>
+
+                  <button
+                    className="h-8 shrink-0 rounded-md border px-2 py-1.5 text-[11px] sm:px-3 sm:py-1.5 sm:text-sm"
+                    style={{ borderColor: "var(--color-customBorder)" }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteSelectedItems();
+                    }}
+                  >
+                    <FaRegTrashAlt />
+                  </button>
+                  <button
+                    ref={bulkMoveButtonRef}
+                    className="h-8 shrink-0 rounded-md border px-2 py-1.5 text-[11px] sm:px-3 sm:py-1.5 sm:text-sm"
+                    style={{ borderColor: "var(--color-customBorder)" }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+
+                      if (!bulkMoveButtonRef.current) return;
+
+                      if (bulkMoveMenuLocation.x !== -1) {
+                        setBulkMoveMenuLocation({
+                          x: -1,
+                          y: -1,
+                          id: "",
+                          fileType: "",
+                          parentId: "",
+                        });
+                        return;
+                      }
+
+                      const pos = getElementPositionInContent(
+                        bulkMoveButtonRef.current,
+                      );
+
+                      setLocation({
+                        x: -1,
+                        y: -1,
+                      });
+
+                      setLocation2({
+                        x: -1,
+                        y: -1,
+                        id: "",
+                        fileType: "",
+                        parentId: "",
+                      });
+
+                      setBulkMoveMenuLocation({
+                        x: pos.x,
+                        y: pos.y,
+                        id: "",
+                        fileType: "",
+                        parentId: "",
+                      });
+                    }}
+                  >
+                    <TbFolderSymlink />
+                  </button>
+                  <button
+                    className="h-8 shrink-0 rounded-md border px-2 py-1.5 text-[11px] sm:px-3 sm:py-1.5 sm:text-sm"
+                    style={{ borderColor: "var(--color-customBorder)" }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      selectAllItemsInCurrentPage();
+                    }}
+                  >
+                    <BiSelectMultiple />
+                  </button>
+
+                  <button
+                    className="h-8 shrink-0 rounded-md border px-2 py-1.5 text-[11px] sm:px-3 sm:py-1.5 sm:text-sm"
+                    style={{ borderColor: "var(--color-customBorder)" }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      clearSelectedItems();
+                    }}
+                  >
+                    <IoClose />
+                  </button>
+                </div>
+              </div>
+
+              <div className="absolute bottom-0 right-0 text-[11px] sm:static sm:mt-0 sm:text-sm">
+                {selectedItems.length}개 선택됨
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="w-full">
           {loading ? (
@@ -1054,14 +1768,27 @@ export default function UserPage({ id }: Props) {
                 <AnimatePresence>
                   {folders.map((folder: any, idx: number) => {
                     const folderInputId = folder.title.replace(":", "-");
+                    const folderChecked = isSelected(folder.id, "folder");
+
                     return (
                       <motion.div
                         data-folder-id={folder.id}
-                        className={`actioned z-40 flex w-[112px] select-none sm:w-[140px] ${folder.id !== "temp" && "cursor-pointer"} flex-col items-center`}
+                        className={`actioned z-40 flex w-[112px] select-none sm:w-[140px] ${
+                          folder.id !== "temp" && "cursor-pointer"
+                        } flex-col items-center`}
                         key={folder.title}
                         onClick={() => {
-                          if (folder.id !== "temp")
-                            router.push(`/folder/${folder.id}`);
+                          if (folder.id === "temp") return;
+
+                          if (isBulkMoveMode && selectedItems.length > 0) {
+                            moveSelectedItemsToFolder(
+                              folder.id,
+                              folder.realTitle,
+                            );
+                            return;
+                          }
+
+                          router.push(`/folder/${folder.id}`);
                         }}
                         layout
                         initial={{ opacity: 0, y: -20 }}
@@ -1289,7 +2016,9 @@ export default function UserPage({ id }: Props) {
                                 ? "0 0 0 2px rgba(59,130,246,0.6), 0 12px 28px rgba(0,0,0,0.12)"
                                 : draggingFolderId === folder.id
                                   ? "0 10px 24px rgba(0,0,0,0.18)"
-                                  : "none",
+                                  : folderChecked
+                                    ? "0 0 0 2px rgba(59,130,246,0.45)"
+                                    : "none",
                             opacity: draggingFolderId === folder.id ? 0.35 : 1,
                             touchAction: "none",
                           }}
@@ -1297,13 +2026,38 @@ export default function UserPage({ id }: Props) {
                         >
                           {folder.user === session?.user?.email && (
                             <>
-                              <div className="absolute left-1 top-1">
+                              <div className="absolute bottom-2 right-1 z-20">
+                                <label
+                                  className="flex cursor-pointer items-center gap-1 px-2 py-1 text-xs"
+                                  style={{
+                                    borderColor: "var(--color-customBorder)",
+                                    backgroundColor: "var(--color-bg-primary)",
+                                    color: "var(--color-primary)",
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <CustomCheckbox
+                                    checked={folderChecked}
+                                    onChange={() =>
+                                      toggleSelectedItem({
+                                        id: folder.id,
+                                        type: "folder",
+                                        title: folder.realTitle,
+                                        parentId: folder.parentId,
+                                      })
+                                    }
+                                  />
+                                </label>
+                              </div>
+
+                              <div className="absolute left-2 top-2 z-10">
                                 <Heart
                                   data={folder}
                                   liked={folder.liked}
                                   setData={setTestSwitch}
                                 />
                               </div>
+
                               <div
                                 className="absolute end-0 p-1"
                                 onClick={(e) => {
@@ -1315,6 +2069,7 @@ export default function UserPage({ id }: Props) {
                               </div>
                             </>
                           )}
+
                           <div className="ml-4 mr-4 flex h-full items-center justify-center">
                             {folder.id === "temp" ? (
                               <div className="flex items-center justify-center text-center">
@@ -1327,9 +2082,12 @@ export default function UserPage({ id }: Props) {
                             )}
                           </div>
                         </div>
+
                         <div
                           className="w-full"
                           onClick={(e) => {
+                            e.stopPropagation();
+
                             if (
                               owner == session?.user?.email ||
                               id == undefined
@@ -1407,9 +2165,13 @@ export default function UserPage({ id }: Props) {
 
                   {datas.map((data: any, idx: number) => {
                     const inputId = data?.title.replace(":", "-");
+                    const dataChecked = isSelected(data.id, "file");
+
                     return (
                       <motion.div
-                        className={`actioned z-40 flex w-[112px] select-none sm:w-[140px] ${data.id !== "temp" && "cursor-pointer"} flex-col items-center`}
+                        className={`actioned z-40 flex w-[112px] select-none sm:w-[140px] ${
+                          data.id !== "temp" && "cursor-pointer"
+                        } flex-col items-center`}
                         key={data.title}
                         onPointerDown={(e) => {
                           if (e.pointerType === "mouse") return;
@@ -1606,19 +2368,46 @@ export default function UserPage({ id }: Props) {
                             boxShadow:
                               draggingFileId === data.id
                                 ? "0 10px 24px rgba(0,0,0,0.18)"
-                                : "none",
+                                : dataChecked
+                                  ? "0 0 0 2px rgba(59,130,246,0.45)"
+                                  : "none",
                           }}
                           className="relative h-[160px] w-[112px] rounded-md border-2 border-customBorder sm:h-[200px] sm:w-[140px]"
                         >
                           {data.user === session?.user?.email && (
                             <>
-                              <div className="absolute left-1 top-1">
+                              <div className="absolute bottom-2 right-1">
+                                <label
+                                  className="flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-xs"
+                                  style={{
+                                    borderColor: "var(--color-customBorder)",
+                                    backgroundColor: "var(--color-bg-primary)",
+                                    color: "var(--color-primary)",
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <CustomCheckbox
+                                    checked={dataChecked}
+                                    onChange={() =>
+                                      toggleSelectedItem({
+                                        id: data.id,
+                                        type: "file",
+                                        title: data.realTitle,
+                                        parentId: data.parentId,
+                                      })
+                                    }
+                                  />
+                                </label>
+                              </div>
+
+                              <div className="absolute left-2 top-2">
                                 <Heart
                                   data={data}
                                   liked={data.liked}
                                   setData={setTestSwitch}
                                 />
                               </div>
+
                               <div
                                 className="absolute end-0 p-1"
                                 onClick={(e) => {
@@ -1630,6 +2419,7 @@ export default function UserPage({ id }: Props) {
                               </div>
                             </>
                           )}
+
                           <div className="ml-4 mr-4 flex h-full items-center justify-center">
                             {data.id === "temp" ? (
                               <div className="flex items-center justify-center text-center">
@@ -1642,6 +2432,7 @@ export default function UserPage({ id }: Props) {
                             )}
                           </div>
                         </div>
+
                         <div
                           className="w-full"
                           onClick={(e) => {
@@ -1750,25 +2541,18 @@ export default function UserPage({ id }: Props) {
           </div>
         </div>
 
-        {touchGhost && (
+        {touchGhost && isAnyDragging && (
           <div
-            className="pointer-events-none fixed z-[9999] -translate-x-1/2 -translate-y-1/2"
+            className="pointer-events-none fixed z-[9999] rounded-md border px-3 py-2 text-sm shadow-lg"
             style={{
-              left: touchGhost.x,
-              top: touchGhost.y - 18,
+              left: touchGhost.x + 12,
+              top: touchGhost.y + 12,
+              borderColor: "var(--color-customBorder)",
+              backgroundColor: "var(--color-bg-primary)",
+              color: "var(--color-primary)",
             }}
           >
-            <div
-              className="max-w-[160px] rounded-md border-2 px-3 py-2 text-sm shadow-2xl"
-              style={{
-                backgroundColor: "var(--color-bg-primary)",
-                color: "var(--color-primary)",
-                borderColor: "var(--color-customBorder)",
-                opacity: 0.95,
-              }}
-            >
-              <div className="truncate">{touchGhost.title}</div>
-            </div>
+            {touchGhost.title}
           </div>
         )}
       </div>

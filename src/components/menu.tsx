@@ -67,6 +67,7 @@ export default function Menu({
   // 한 번만 모든 폴더 데이터를 가져와 상태에 저장
   const fetchAllFolders = async () => {
     if (!session?.user?.email) return;
+
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_SITE}/api/path?id=${session.user.email}`,
@@ -75,21 +76,38 @@ export default function Menu({
           cache: "no-store",
         },
       );
+
       const result = await response.json();
-      setAllFolders(result.data);
+      const folders = result.data || [];
+
+      setAllFolders(folders);
+
+      setPath({
+        name: "",
+        route: "0",
+        depth: 0,
+        childrenArr: folders
+          .filter((folder: Folder) => folder.parentId === "0")
+          .map((folder: Folder) => ({
+            name: folder.realTitle,
+            route: folder.id,
+            depth: 1,
+            childrenArr: [],
+          })),
+      });
     } catch (error) {
       console.error("Failed to fetch all folders:", error);
     }
   };
 
   // 특정 폴더의 하위 폴더 찾기
-  const getChildren = (parentRoute: string): Path[] => {
+  const getChildren = (parentRoute: string, parentDepth: number): Path[] => {
     return allFolders
       .filter((folder) => folder.parentId === parentRoute)
       .map((folder) => ({
         name: folder.realTitle,
         route: folder.id,
-        depth: 0,
+        depth: parentDepth + 1,
         childrenArr: [],
       }));
   };
@@ -100,9 +118,12 @@ export default function Menu({
       return {
         ...node,
         childrenArr:
-          node.childrenArr.length > 0 ? [] : getChildren(targetRoute),
+          node.childrenArr.length > 0
+            ? []
+            : getChildren(targetRoute, node.depth),
       };
     }
+
     return {
       ...node,
       childrenArr: node.childrenArr.map((child) =>
@@ -131,8 +152,27 @@ export default function Menu({
             <span>{node.name}/</span>
           </button>
           <button
-            onClick={() => {
-              customFunctions?.editPath(id, fileType, node.route, parentId);
+            onClick={async () => {
+              const hasSelectedItems =
+                Array.isArray(customFunctions?.selectedItems) &&
+                customFunctions.selectedItems.length > 0;
+
+              if (hasSelectedItems) {
+                await customFunctions?.moveSelectedItemsToFolder?.(
+                  node.route,
+                  node.name,
+                );
+                setPathSwitch(false);
+                return;
+              }
+
+              await customFunctions?.editPath?.(
+                id,
+                fileType,
+                node.route,
+                parentId,
+              );
+              setPathSwitch(false);
             }}
             className="flex items-center"
           >
