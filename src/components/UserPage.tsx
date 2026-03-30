@@ -4,33 +4,49 @@ import { useEffect, useRef, useState } from "react";
 import { storage } from "../firebase/firebaseConfig";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { usePathname, useRouter } from "next/navigation";
-import { IoIosClose } from "react-icons/io";
-import { FaArrowLeft, FaRegFolderOpen, FaRegTrashAlt } from "react-icons/fa";
-import { IoClose } from "react-icons/io5";
-import { BiSelectMultiple } from "react-icons/bi";
+import { FaArrowLeft } from "react-icons/fa";
 import Menu from "@/components/menu";
 import Spinner from "@/components/spinner";
 import SpinnerMini from "./spinner-mini";
 import { AnimatePresence, motion } from "framer-motion";
 import { useSession } from "next-auth/react";
 import { useToast } from "@/hooks/use-toast";
-import Heart from "@/components/Heart";
 import { appSwal, icons } from "@/lib/swal";
-import JSZip from "jszip";
-import CustomCheckbox from "./CustomCheckbox";
-import { LuDownload } from "react-icons/lu";
-import { TbFolderSymlink } from "react-icons/tb";
+import { isDescendantFolder } from "@/lib/explorer-utils";
+import SelectionActionBar from "@/components/SelectionActionBar";
+import PreviewPanel from "@/components/PreviewPanel";
+import PreviewDropZone from "@/components/PreviewDropZone";
+import FolderCard from "@/components/FolderCard";
+import FileCard from "@/components/FileCard";
+import useSelection from "@/hooks/useSelection";
+import {
+  fetchFoldersByParentId,
+  fetchTextsByParentId,
+  fetchAllFoldersFlat,
+  fetchFolderParentInfo,
+  createTextItem,
+  createFolderItem,
+  deleteTextItem,
+  deleteFolderItem,
+  editTextTitleItem,
+  editFolderTitleItem,
+  editChildrenPath,
+  fetchPreviewTextById,
+} from "@/lib/explorer-api";
+import usePreview from "@/hooks/usePreviews";
+import useDownload from "@/hooks/useDownload";
+import useMenuState from "@/hooks/useMenuState";
+import type {
+  SelectedItem,
+  MenuPosition,
+  FileMenuPosition,
+  TouchGhost,
+  TouchDragState,
+} from "@/types/explorer";
 
 interface Props {
   id?: string;
 }
-
-type SelectedItem = {
-  id: string;
-  type: "file" | "folder";
-  title: string;
-  parentId: string;
-};
 
 export default function UserPage({ id }: Props) {
   const { toast } = useToast();
@@ -40,27 +56,6 @@ export default function UserPage({ id }: Props) {
 
   const [isAdding, setIsAdding] = useState(false);
   const [loading, setLoading] = useState(true);
-
-  const [location, setLocation] = useState({
-    x: -1,
-    y: -1,
-  });
-
-  const [location2, setLocation2] = useState({
-    x: -1,
-    y: -1,
-    id: "",
-    fileType: "",
-    parentId: "",
-  });
-
-  const [bulkMoveMenuLocation, setBulkMoveMenuLocation] = useState({
-    x: -1,
-    y: -1,
-    id: "",
-    fileType: "",
-    parentId: "",
-  });
 
   const bulkMoveButtonRef = useRef<HTMLButtonElement | null>(null);
 
@@ -85,38 +80,15 @@ export default function UserPage({ id }: Props) {
   const [draggingFileId, setDraggingFileId] = useState<string | null>(null);
   const [draggingFolderId, setDraggingFolderId] = useState<string | null>(null);
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
-  const [touchGhost, setTouchGhost] = useState<{
-    title: string;
-    x: number;
-    y: number;
-  } | null>(null);
+  const [touchGhost, setTouchGhost] = useState<TouchGhost>(null);
 
   const [isPreviewZoneActive, setIsPreviewZoneActive] = useState(false);
-  const [isPreviewMode, setIsPreviewMode] = useState(false);
-  const [previewTarget, setPreviewTarget] = useState<{
-    id: string;
-    title: string;
-  } | null>(null);
-  const [previewContent, setPreviewContent] = useState("");
-  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [isDesktopFileDragging, setIsDesktopFileDragging] = useState(false);
-
-  const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
   const [isBulkMoveMode, setIsBulkMoveMode] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
 
   const router = useRouter();
 
-  const touchDragRef = useRef<{
-    pointerId: number;
-    startX: number;
-    startY: number;
-    dragging: boolean;
-    itemType: "file" | "folder";
-    itemId: string;
-    title: string;
-    parentId: string;
-  } | null>(null);
+  const touchDragRef = useRef<TouchDragState>(null);
 
   const contentAreaRef = useRef<HTMLDivElement | null>(null);
 
@@ -125,60 +97,67 @@ export default function UserPage({ id }: Props) {
   );
   const isFileDragging = Boolean(draggingFileId || isDesktopFileDragging);
 
-  const isSelected = (id: string, type: "file" | "folder") => {
-    return selectedItems.some((item) => item.id === id && item.type === type);
+  const resetDragVisualState = () => {
+    setDraggingFileId(null);
+    setDraggingFolderId(null);
+    setTouchGhost(null);
+    setDragOverFolderId(null);
+    setIsPreviewZoneActive(false);
   };
 
-  const toggleSelectedItem = (item: SelectedItem) => {
-    setSelectedItems((prev) => {
-      const exists = prev.some(
-        (selected) => selected.id === item.id && selected.type === item.type,
-      );
-
-      if (exists) {
-        return prev.filter(
-          (selected) =>
-            !(selected.id === item.id && selected.type === item.type),
-        );
-      }
-
-      return [...prev, item];
-    });
-  };
+  const {
+    selectedItems,
+    setSelectedItems,
+    isSelected,
+    toggleSelectedItem,
+    clearSelectedItems: baseClearSelectedItems,
+    selectAllItemsInCurrentPage,
+  } = useSelection();
 
   const clearSelectedItems = () => {
-    setSelectedItems([]);
+    baseClearSelectedItems();
+    closeBulkMoveMenu();
     setIsBulkMoveMode(false);
-    setBulkMoveMenuLocation({
-      x: -1,
-      y: -1,
-      id: "",
-      fileType: "",
-      parentId: "",
-    });
   };
 
-  const selectAllItemsInCurrentPage = () => {
-    const selectableFolders = folders
-      .filter((folder: any) => folder.id !== "temp")
-      .map((folder: any) => ({
-        id: folder.id,
-        type: "folder" as const,
-        title: folder.realTitle,
-        parentId: folder.parentId,
-      }));
+  const {
+    isPreviewMode,
+    setIsPreviewMode,
+    previewTarget,
+    setPreviewTarget,
+    previewContent,
+    isPreviewLoading,
+    openPreviewFile,
+    closePreview,
+  } = usePreview({
+    onAfterOpen: resetDragVisualState,
+  });
 
-    const selectableFiles = datas
-      .filter((data: any) => data.id !== "temp")
-      .map((data: any) => ({
-        id: data.id,
-        type: "file" as const,
-        title: data.realTitle,
-        parentId: data.parentId,
-      }));
+  const {
+    location,
+    location2,
+    bulkMoveMenuLocation,
+    setLocation,
+    setLocation2,
+    setBulkMoveMenuLocation,
+    closeBaseMenu,
+    closeItemMenu,
+    closeBulkMoveMenu,
+    closeAllMenus,
+    openBaseMenu,
+    openItemMenu,
+    toggleBulkMoveMenu,
+  } = useMenuState();
 
-    setSelectedItems([...selectableFolders, ...selectableFiles]);
-  };
+  const { isDownloading, downloadMessage, downloadSelectedItems } = useDownload(
+    {
+      sessionEmail: session?.user?.email,
+      selectedItems,
+      datas,
+      folders,
+      toast,
+    },
+  );
 
   const getMenuPositionInContent = (e: React.MouseEvent | MouseEvent) => {
     const container = contentAreaRef.current;
@@ -218,250 +197,10 @@ export default function UserPage({ id }: Props) {
     };
   };
 
-  const resetDragVisualState = () => {
-    setDraggingFileId(null);
-    setDraggingFolderId(null);
-    setTouchGhost(null);
-    setDragOverFolderId(null);
-    setIsPreviewZoneActive(false);
-  };
-
-  const openPreviewFile = (fileId: string, title: string) => {
-    setPreviewTarget({ id: fileId, title });
-    setIsPreviewMode(true);
-    resetDragVisualState();
-  };
-
-  const triggerDownloadBlob = (blob: Blob, fileName: string) => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  };
-
-  const getTextsByParentId = async (parentId: string) => {
-    const result = await fetch(
-      `${process.env.NEXT_PUBLIC_SITE}/api/text?id=${session?.user?.email}:${parentId}`,
-      {
-        method: "GET",
-        cache: "no-store",
-      },
-    );
-
-    const final = await result.json();
-    return final.data || [];
-  };
-
-  const getFoldersByParentId = async (parentId: string) => {
-    const result = await fetch(
-      `${process.env.NEXT_PUBLIC_SITE}/api/folder?id=${session?.user?.email}:${parentId}`,
-      {
-        method: "GET",
-        cache: "no-store",
-      },
-    );
-
-    const final = await result.json();
-    return final.data || [];
-  };
-
   const getAllFoldersFlat = async () => {
-    const result = await fetch(
-      `${process.env.NEXT_PUBLIC_SITE}/api/path?id=${session?.user?.email}`,
-      {
-        method: "GET",
-        cache: "no-store",
-      },
-    );
-
-    const final = await result.json();
+    if (!session?.user?.email) return [];
+    const final = await fetchAllFoldersFlat(session.user.email);
     return final.data || [];
-  };
-
-  const isDescendantFolder = (
-    sourceFolderId: string,
-    targetFolderId: string,
-    allFolders: any[],
-  ) => {
-    let currentParentId = targetFolderId;
-
-    while (currentParentId && currentParentId !== "0") {
-      if (currentParentId === sourceFolderId) {
-        return true;
-      }
-
-      const currentFolder = allFolders.find(
-        (folder: any) => folder.id === currentParentId,
-      );
-
-      if (!currentFolder) {
-        break;
-      }
-
-      currentParentId = currentFolder.parentId;
-    }
-
-    return false;
-  };
-
-  const makeUniqueName = (fileName: string, usedNames: Set<string>) => {
-    if (!usedNames.has(fileName)) {
-      usedNames.add(fileName);
-      return fileName;
-    }
-
-    const dotIndex = fileName.lastIndexOf(".");
-    const hasExt = dotIndex > 0;
-    const name = hasExt ? fileName.slice(0, dotIndex) : fileName;
-    const ext = hasExt ? fileName.slice(dotIndex) : "";
-
-    let count = 1;
-    let nextName = `${name} (${count})${ext}`;
-
-    while (usedNames.has(nextName)) {
-      count += 1;
-      nextName = `${name} (${count})${ext}`;
-    }
-
-    usedNames.add(nextName);
-    return nextName;
-  };
-
-  const addFilesToZipFolder = async (zipFolder: JSZip, files: any[]) => {
-    const usedNames = new Set<string>();
-
-    for (const file of files) {
-      if (!file?.path) continue;
-
-      const response = await fetch(file.path, {
-        cache: "no-store",
-      });
-
-      if (!response.ok) {
-        throw new Error(`파일 다운로드 실패: ${file.realTitle}`);
-      }
-
-      const text = await response.text();
-      const safeName = makeUniqueName(`${file.realTitle}.txt`, usedNames);
-
-      zipFolder.file(safeName, text);
-    }
-  };
-
-  const addFolderRecursivelyToZip = async (
-    parentZip: JSZip,
-    folderId: string,
-    folderName: string,
-  ) => {
-    const folderZip = parentZip.folder(folderName);
-
-    if (!folderZip) {
-      throw new Error(`zip 폴더 생성 실패: ${folderName}`);
-    }
-
-    const childFiles = await getTextsByParentId(folderId);
-    const childFolders = await getFoldersByParentId(folderId);
-
-    await addFilesToZipFolder(folderZip, childFiles);
-
-    const usedFolderNames = new Set<string>();
-
-    for (const childFolder of childFolders) {
-      const safeFolderName = makeUniqueName(
-        childFolder.realTitle,
-        usedFolderNames,
-      );
-
-      await addFolderRecursivelyToZip(
-        folderZip,
-        childFolder.id,
-        safeFolderName,
-      );
-    }
-  };
-
-  const downloadSelectedItems = async () => {
-    if (selectedItems.length === 0) {
-      toast({
-        title: "알림",
-        description: "선택된 항목이 없습니다",
-      });
-      return;
-    }
-
-    if (!session?.user?.email) {
-      toast({
-        title: "알림",
-        description: "로그인 정보가 필요합니다",
-      });
-      return;
-    }
-
-    const result = await appSwal.fire({
-      title: "다운로드 확인",
-      text: `${selectedItems.length}개 항목을 다운로드하시겠습니까?`,
-      icon: icons.question.icon,
-      iconColor: icons.question.color,
-      showCancelButton: true,
-      confirmButtonText: "다운로드",
-      cancelButtonText: "취소",
-    });
-
-    if (!result.isConfirmed) return;
-
-    setIsDownloading(true);
-
-    const selectedFiles = selectedItems.filter((item) => item.type === "file");
-    const selectedFolders = selectedItems.filter(
-      (item) => item.type === "folder",
-    );
-
-    try {
-      const zip = new JSZip();
-
-      await addFilesToZipFolder(
-        zip,
-        selectedFiles
-          .map((item) => datas.find((data: any) => data.id === item.id))
-          .filter(Boolean),
-      );
-
-      const usedRootFolderNames = new Set<string>();
-
-      for (const folderItem of selectedFolders) {
-        const folderData = folders.find(
-          (folder: any) => folder.id === folderItem.id,
-        );
-
-        const folderName = makeUniqueName(
-          folderData?.realTitle || folderItem.title,
-          usedRootFolderNames,
-        );
-
-        await addFolderRecursivelyToZip(zip, folderItem.id, folderName);
-      }
-
-      const zipBlob = await zip.generateAsync({ type: "blob" });
-
-      triggerDownloadBlob(zipBlob, `selected-items-${Date.now()}.zip`);
-
-      toast({
-        title: "알림",
-        description: "선택한 항목들을 zip으로 다운로드했습니다",
-      });
-    } catch (error) {
-      console.error(error);
-      toast({
-        title: "알림",
-        description: "일괄 다운로드 중 오류가 발생했습니다",
-      });
-    } finally {
-      setIsDownloading(false);
-    }
   };
 
   const uploadWritten = async () => {
@@ -481,23 +220,15 @@ export default function UserPage({ id }: Props) {
         const fileRef = ref(storage, `texts/${fileName}:${key}.txt`);
         await uploadBytes(fileRef, file.files[0]).then(async (snapshot) => {
           getDownloadURL(snapshot.ref).then(async (downUrl) => {
-            const brought = await fetch(
-              `${process.env.NEXT_PUBLIC_SITE}/api/text`,
-              {
-                method: "POST",
-                body: JSON.stringify({
-                  title: `${fileName}:${key}`,
-                  path: downUrl,
-                  order: key,
-                  realTitle: fileName,
-                  user: session?.user?.email,
-                  liked: false,
-                  parentId: id || "0",
-                }),
-                cache: "no-store",
-              },
-            );
-            const final = await brought.json();
+            const final = await createTextItem({
+              title: `${fileName}:${key}`,
+              path: downUrl,
+              order: key,
+              realTitle: fileName,
+              user: session?.user?.email,
+              liked: false,
+              parentId: id || "0",
+            });
             if (final.message === "무라사키") {
               const semi = datas.slice(0);
               semi.unshift(final.data);
@@ -507,14 +238,10 @@ export default function UserPage({ id }: Props) {
                 title: "알림",
                 description: "업로드에 실패하셨습니다",
               });
-              await fetch(`${process.env.NEXT_PUBLIC_SITE}/api/text/delete`, {
-                method: "DELETE",
-                body: JSON.stringify({
-                  id: "nope",
-                  title: `${fileName}:${key}`,
-                  email: session?.user?.email,
-                }),
-                cache: "no-store",
+              await deleteTextItem({
+                id: "nope",
+                title: `${fileName}:${key}`,
+                email: session?.user?.email,
               });
             }
             setLocation({
@@ -553,23 +280,15 @@ export default function UserPage({ id }: Props) {
           const fileRef = ref(storage, `texts/${fileName}:${key}.txt`);
           await uploadBytes(fileRef, file).then(async (snapshot) => {
             getDownloadURL(snapshot.ref).then(async (downUrl) => {
-              const brought = await fetch(
-                `${process.env.NEXT_PUBLIC_SITE}/api/text`,
-                {
-                  method: "POST",
-                  body: JSON.stringify({
-                    title: `${fileName}:${key}`,
-                    path: downUrl,
-                    order: key,
-                    realTitle: fileName,
-                    user: session?.user?.email,
-                    liked: false,
-                    parentId: id || "0",
-                  }),
-                  cache: "no-store",
-                },
-              );
-              const final = await brought.json();
+              const final = await createTextItem({
+                title: `${fileName}:${key}`,
+                path: downUrl,
+                order: key,
+                realTitle: fileName,
+                user: session?.user?.email,
+                liked: false,
+                parentId: id || "0",
+              });
               if (final.message === "무라사키") {
                 const semi = datas.slice(0);
                 semi.unshift(final.data);
@@ -579,14 +298,10 @@ export default function UserPage({ id }: Props) {
                   title: "알림",
                   description: "업로드에 실패하셨습니다",
                 });
-                await fetch(`${process.env.NEXT_PUBLIC_SITE}/api/text/delete`, {
-                  method: "DELETE",
-                  body: JSON.stringify({
-                    id: "nope",
-                    title: `${fileName}:${key}`,
-                    email: session?.user?.email,
-                  }),
-                  cache: "no-store",
+                await deleteTextItem({
+                  id: "nope",
+                  title: `${fileName}:${key}`,
+                  email: session?.user?.email,
                 });
               }
               setLocation({
@@ -624,21 +339,15 @@ export default function UserPage({ id }: Props) {
     try {
       const snapshot = await uploadBytes(fileRef, file);
       const downUrl = await getDownloadURL(snapshot.ref);
-      const response = await fetch(`${process.env.NEXT_PUBLIC_SITE}/api/text`, {
-        method: "POST",
-        body: JSON.stringify({
-          title: `${fileName}:${key}`,
-          path: downUrl,
-          order: key,
-          realTitle: fileName,
-          user: session?.user?.email,
-          liked: false,
-          parentId: id || "0",
-        }),
-        cache: "no-store",
+      const final = await createTextItem({
+        title: `${fileName}:${key}`,
+        path: downUrl,
+        order: key,
+        realTitle: fileName,
+        user: session?.user?.email,
+        liked: false,
+        parentId: id || "0",
       });
-
-      const final = await response.json();
       if (final.message === "무라사키") {
         let tempCopy = temp.slice(0);
         tempCopy = tempCopy.map((item: any) => {
@@ -655,14 +364,10 @@ export default function UserPage({ id }: Props) {
         setDatas((prevDatas: any) =>
           prevDatas.filter((item: any) => item.id !== optimisticData.id),
         );
-        await fetch(`${process.env.NEXT_PUBLIC_SITE}/api/text/delete`, {
-          method: "DELETE",
-          body: JSON.stringify({
-            id: "nope",
-            title: `${fileName}:${key}`,
-            email: session?.user?.email,
-          }),
-          cache: "no-store",
+        await deleteTextItem({
+          id: "nope",
+          title: `${fileName}:${key}`,
+          email: session?.user?.email,
         });
       }
     } catch (error) {
@@ -680,14 +385,13 @@ export default function UserPage({ id }: Props) {
   };
 
   const getFolders = async () => {
-    const result = await fetch(
-      `${process.env.NEXT_PUBLIC_SITE}/api/folder?id=${session?.user?.email}:${id || "0"}`,
-      {
-        method: "GET",
-        cache: "no-store",
-      },
+    if (!session?.user?.email) return;
+
+    const tempfolders = await fetchFoldersByParentId(
+      session.user.email,
+      id || "0",
     );
-    const tempfolders = await result.json();
+
     const sorted = tempfolders.data
       .sort((x: any, y: any) => x.order - y.order)
       .reverse();
@@ -697,20 +401,18 @@ export default function UserPage({ id }: Props) {
       .sort((x: any, y: any) => x.order - y.order);
     const unlikedItems = sorted.filter((item: any) => item.liked !== true);
     const finalSorted = [...likedItems.reverse(), ...unlikedItems];
+
     setFolders(finalSorted);
     setFoldersCount([finalSorted.length - 1]);
   };
 
   const getWritten = async () => {
+    if (!session?.user?.email) return;
+
     await getFolders();
-    const result = await fetch(
-      `${process.env.NEXT_PUBLIC_SITE}/api/text?id=${session?.user?.email}:${id || "0"}`,
-      {
-        method: "GET",
-        cache: "no-store",
-      },
-    );
-    const texts = await result.json();
+
+    const texts = await fetchTextsByParentId(session.user.email, id || "0");
+
     const sorted = texts.data
       .sort((x: any, y: any) => x.order - y.order)
       .reverse();
@@ -720,6 +422,7 @@ export default function UserPage({ id }: Props) {
       .sort((x: any, y: any) => x.order - y.order);
     const unlikedItems = sorted.filter((item: any) => item.liked !== true);
     const finalSorted = [...likedItems.reverse(), ...unlikedItems];
+
     setDatas(finalSorted);
     setDataCount([finalSorted.length]);
     setLoading(false);
@@ -749,23 +452,14 @@ export default function UserPage({ id }: Props) {
       foldersCount[foldersCount.length - 1] + 1,
     ]);
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SITE}/api/folder`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            title: `${fileName}:${key}`,
-            order: key,
-            realTitle: fileName,
-            user: session?.user?.email,
-            liked: false,
-            parentId: id || "0",
-          }),
-          cache: "no-store",
-        },
-      );
-
-      const final = await response.json();
+      const final = await createFolderItem({
+        title: `${fileName}:${key}`,
+        order: key,
+        realTitle: fileName,
+        user: session?.user?.email,
+        liked: false,
+        parentId: id || "0",
+      });
       if (final.message == "무라사키") {
         let tempCopy = temp.slice(0);
         tempCopy = tempCopy.map((item: any) => {
@@ -826,19 +520,11 @@ export default function UserPage({ id }: Props) {
         );
 
         try {
-          const res = await fetch(
-            `${process.env.NEXT_PUBLIC_SITE}/api/text/delete`,
-            {
-              method: "DELETE",
-              body: JSON.stringify({
-                id,
-                title,
-                email: session?.user?.email,
-              }),
-              cache: "no-store",
-            },
-          );
-          const final = await res.json();
+          const final = await deleteTextItem({
+            id,
+            title,
+            email: session?.user?.email,
+          });
 
           if (!(final.message === "결과" && final.data.status === "성공")) {
             setDatas(prevDatas);
@@ -885,18 +571,10 @@ export default function UserPage({ id }: Props) {
         );
 
         try {
-          const res = await fetch(
-            `${process.env.NEXT_PUBLIC_SITE}/api/folder/delete`,
-            {
-              method: "DELETE",
-              body: JSON.stringify({
-                email: session?.user?.email,
-                id,
-              }),
-              cache: "no-store",
-            },
-          );
-          const final = await res.json();
+          const final = await deleteFolderItem({
+            id,
+            email: session?.user?.email,
+          });
 
           if (!(final.message === "결과" && final.data.status === "성공")) {
             setFolders(prevFolders);
@@ -926,27 +604,21 @@ export default function UserPage({ id }: Props) {
       });
       return;
     }
+
     const key = modSwitch;
     setModSwitch(-1);
+
     if (key >= 0) {
-      await fetch(`${process.env.NEXT_PUBLIC_SITE}/api/text/edit-title`, {
-        method: "POST",
-        body: JSON.stringify({
-          id,
-          newTitle,
-          email: session?.user?.email,
-        }),
-        cache: "no-store",
+      await editTextTitleItem({
+        id,
+        newTitle,
+        email: session?.user?.email,
       });
     } else {
-      await fetch(`${process.env.NEXT_PUBLIC_SITE}/api/folder/edit-title`, {
-        method: "POST",
-        body: JSON.stringify({
-          id,
-          newTitle,
-          email: session?.user?.email,
-        }),
-        cache: "no-store",
+      await editFolderTitleItem({
+        id,
+        newTitle,
+        email: session?.user?.email,
       });
     }
   };
@@ -968,6 +640,17 @@ export default function UserPage({ id }: Props) {
         inputElement.focus();
       }
     }, 0);
+  };
+
+  const updateFileTitleDraft = (idx: number, value: string) => {
+    setDatas((prev: any[]) => {
+      const temp = [...prev];
+      temp[idx] = {
+        ...temp[idx],
+        realTitle: value,
+      };
+      return temp;
+    });
   };
 
   const editPath = async (
@@ -1003,22 +686,12 @@ export default function UserPage({ id }: Props) {
         return false;
       }
     }
-
-    const result = await fetch(
-      `${process.env.NEXT_PUBLIC_SITE}/api/children/edit-path`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          id: itemId,
-          type,
-          newPath,
-          email: session?.user?.email,
-        }),
-        cache: "no-store",
-      },
-    );
-
-    const final = await result.json();
+    const final = await editChildrenPath({
+      id: itemId,
+      type,
+      newPath,
+      email: session?.user?.email,
+    });
     if (final.message == "경로 수정 성공") {
       if (type === "folder") {
         const temp = [];
@@ -1177,33 +850,23 @@ export default function UserPage({ id }: Props) {
         ...selectedItems
           .filter((item) => item.type === "file")
           .map((item) =>
-            fetch(`${process.env.NEXT_PUBLIC_SITE}/api/text/delete`, {
-              method: "DELETE",
-              body: JSON.stringify({
-                id: item.id,
-                title: datas.find((d: any) => d.id === item.id)?.title,
-                email: session?.user?.email,
-              }),
-              cache: "no-store",
+            deleteTextItem({
+              id: item.id,
+              title: datas.find((d: any) => d.id === item.id)?.title,
+              email: session?.user?.email,
             }),
           ),
         ...selectedItems
           .filter((item) => item.type === "folder")
           .map((item) =>
-            fetch(`${process.env.NEXT_PUBLIC_SITE}/api/folder/delete`, {
-              method: "DELETE",
-              body: JSON.stringify({
-                id: item.id,
-                email: session?.user?.email,
-              }),
-              cache: "no-store",
+            deleteFolderItem({
+              id: item.id,
+              email: session?.user?.email,
             }),
           ),
       ];
 
-      const responses = await Promise.all(requests);
-      const results = await Promise.all(responses.map((res) => res.json()));
-
+      const results = await Promise.all(requests);
       const failed = results.some(
         (final: any) =>
           !(final?.message === "결과" && final?.data?.status === "성공"),
@@ -1294,19 +957,14 @@ export default function UserPage({ id }: Props) {
     try {
       const responses = await Promise.all(
         selectedItems.map((item) =>
-          fetch(`${process.env.NEXT_PUBLIC_SITE}/api/children/edit-path`, {
-            method: "POST",
-            body: JSON.stringify({
-              id: item.id,
-              type: item.type,
-              newPath: targetFolderId,
-              email: session?.user?.email,
-            }),
-            cache: "no-store",
-          }).then((res) => res.json()),
+          editChildrenPath({
+            id: item.id,
+            type: item.type,
+            newPath: targetFolderId,
+            email: session?.user?.email,
+          }),
         ),
       );
-
       const failed = responses.some(
         (final: any) => final?.message !== "경로 수정 성공",
       );
@@ -1369,11 +1027,8 @@ export default function UserPage({ id }: Props) {
   };
 
   const getParentId = async () => {
-    const result = await fetch(`/api/folder/${id}`, {
-      method: "GET",
-      cache: "no-store",
-    });
-    const final = await result.json();
+    if (!id) return;
+    const final = await fetchFolderParentInfo(id);
     setLoadedParentId(final.data[0].parentId);
     setOwner(final.data[0].user);
   };
@@ -1421,38 +1076,6 @@ export default function UserPage({ id }: Props) {
     }
   }, [testSwitch]);
 
-  useEffect(() => {
-    const fetchPreviewContent = async () => {
-      if (!previewTarget?.id) return;
-
-      setIsPreviewLoading(true);
-      setPreviewContent("");
-
-      try {
-        const result = await fetch(`/api/text/${previewTarget.id}`, {
-          cache: "no-store",
-        });
-        const final = await result.json();
-
-        if (final.data && final.data.length > 0) {
-          const file = final.data[0];
-          const res = await fetch(file.path);
-          const text = await res.text();
-          setPreviewContent(text);
-        } else {
-          setPreviewContent("해당 문서를 찾을 수 없습니다.");
-        }
-      } catch (error) {
-        console.error(error);
-        setPreviewContent("시스템 오류가 발생하여 내용을 불러올 수 없습니다.");
-      } finally {
-        setIsPreviewLoading(false);
-      }
-    };
-
-    fetchPreviewContent();
-  }, [previewTarget?.id]);
-
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden md:flex-row">
       {isDownloading && (
@@ -1473,111 +1096,34 @@ export default function UserPage({ id }: Props) {
           >
             <SpinnerMini />
             <div className="text-center text-sm sm:text-base">
-              선택된 항목을 압축하는 중...
+              {downloadMessage || "처리 중..."}
             </div>
           </div>
         </div>
       )}
       {isPreviewMode && (
-        <div
-          className="relative z-10 order-1 flex h-1/2 w-full flex-col overflow-hidden border-b-2 md:order-2 md:h-screen md:w-1/2 md:border-b-0 md:border-l-2"
-          style={{
-            borderColor: "var(--color-customBorder)",
-            backgroundColor: "var(--color-bg-primary)",
-            transition: "background-color 0.7s ease, box-shadow 0.2s ease",
-            boxShadow: isPreviewZoneActive
-              ? "inset 0 0 0 2px rgba(59,130,246,0.45)"
-              : "none",
-          }}
-          data-preview-panel="true"
-          onDragOver={(e: React.DragEvent<HTMLDivElement>) => {
-            if (!isFileDragging) return;
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          onDrop={(e: React.DragEvent<HTMLDivElement>) => {
-            e.preventDefault();
-            e.stopPropagation();
-
-            const dragType = e.dataTransfer.getData("drag-type");
-            const itemId = e.dataTransfer.getData("item-id");
-            const title = e.dataTransfer.getData("item-title");
-
-            if (dragType === "file" && itemId) {
-              setIsDesktopFileDragging(false);
-              openPreviewFile(itemId, title);
-            } else {
-              resetDragVisualState();
+        <PreviewPanel
+          previewTarget={previewTarget}
+          previewContent={previewContent}
+          isPreviewLoading={isPreviewLoading}
+          isPreviewZoneActive={isPreviewZoneActive}
+          isFileDragging={isFileDragging}
+          canEdit={
+            datas.find((item: any) => item.id === previewTarget?.id)?.user ===
+            session?.user?.email
+          }
+          onEdit={() => {
+            if (previewTarget?.id) {
+              router.push(`/text/${previewTarget.id}`);
             }
           }}
-        >
-          <div
-            className="flex items-center justify-between border-b p-4 shadow-sm"
-            style={{ borderColor: "var(--color-customBorder)" }}
-          >
-            <h2
-              className="truncate pr-4 text-lg font-bold"
-              style={{ color: "var(--color-primary)" }}
-            >
-              {previewTarget?.title}
-            </h2>
-            <div className="flex gap-x-2">
-              {datas.find((item: any) => item.id === previewTarget?.id)
-                ?.user === session?.user?.email && (
-                <button
-                  onClick={() => {
-                    if (previewTarget?.id) {
-                      router.push(`/text/${previewTarget.id}`);
-                    }
-                  }}
-                  className="whitespace-nowrap rounded-md border-2 px-4 py-2 text-sm font-medium transition-colors"
-                  style={{
-                    borderColor: "var(--color-customBorder)",
-                    color: "var(--color-primary)",
-                    backgroundColor: "transparent",
-                  }}
-                >
-                  편집모드로
-                </button>
-              )}
-              <button
-                onClick={() => {
-                  setIsPreviewMode(false);
-                  setPreviewTarget(null);
-                  setPreviewContent("");
-                }}
-                className="whitespace-nowrap rounded-md border-2 px-4 py-2 text-sm font-medium transition-colors"
-                style={{
-                  borderColor: "var(--color-customBorder)",
-                  color: "var(--color-primary)",
-                  backgroundColor: "transparent",
-                }}
-              >
-                닫기
-              </button>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {isPreviewLoading ? (
-              <div className="flex h-full w-full items-center justify-center">
-                <Spinner />
-              </div>
-            ) : (
-              <div
-                className="h-full w-full overflow-auto whitespace-pre-wrap rounded-md border-2 p-6 shadow-inner outline-none [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                style={{
-                  borderColor: "var(--color-customBorder)",
-                  backgroundColor: "var(--color-bg-primary)",
-                  color: "var(--color-primary)",
-                  transition: "background-color 0.7s ease",
-                }}
-              >
-                {previewContent}
-              </div>
-            )}
-          </div>
-        </div>
+          onClose={closePreview}
+          onDropFile={(itemId, title) => {
+            setIsDesktopFileDragging(false);
+            openPreviewFile(itemId, title);
+          }}
+          onResetDragVisualState={resetDragVisualState}
+        />
       )}
 
       <div
@@ -1599,41 +1145,12 @@ export default function UserPage({ id }: Props) {
         }}
         onContextMenu={(e) => {
           e.preventDefault();
-
           const pos = getMenuPositionInContent(e);
-
-          setLocation2({
-            x: -1,
-            y: -1,
-            id: "",
-            fileType: "",
-            parentId: "",
-          });
-          setLocation({
-            x: pos.x,
-            y: pos.y,
-          });
+          openBaseMenu(pos.x, pos.y);
         }}
         onClick={(e) => {
           e.preventDefault();
-          setLocation({
-            x: -1,
-            y: -1,
-          });
-          setLocation2({
-            x: -1,
-            y: -1,
-            id: "",
-            fileType: "",
-            parentId: "",
-          });
-          setBulkMoveMenuLocation({
-            x: -1,
-            y: -1,
-            id: "",
-            fileType: "",
-            parentId: "",
-          });
+          closeAllMenus();
           if (modSwitch !== -1) {
             if (modSwitch >= 0) {
               editTitle(currentDataId, datas[modSwitch].realTitle);
@@ -1699,121 +1216,23 @@ export default function UserPage({ id }: Props) {
         )}
 
         {selectedItems.length > 0 && (
-          <div
-            className="sticky top-0 z-[60] mt-4 w-[calc(100%-2rem)] rounded-xl border-2 px-2 py-2 sm:px-4 sm:py-3"
-            style={{
-              borderColor: "var(--color-customBorder)",
-              backgroundColor: "var(--color-bg-primary)",
-              color: "var(--color-primary)",
+          <SelectionActionBar
+            selectedCount={selectedItems.length}
+            isDownloading={isDownloading}
+            bulkMoveMenuOpen={bulkMoveMenuLocation.x !== -1}
+            bulkMoveButtonRef={bulkMoveButtonRef}
+            onDownload={downloadSelectedItems}
+            onDelete={deleteSelectedItems}
+            onSelectAll={() => selectAllItemsInCurrentPage(folders, datas)}
+            onClear={clearSelectedItems}
+            onMoveMenuToggle={() => {
+              if (!bulkMoveButtonRef.current) return;
+              const pos = getElementPositionInContent(
+                bulkMoveButtonRef.current,
+              );
+              toggleBulkMoveMenu(pos.x, pos.y);
             }}
-          >
-            <div className="relative min-h-[56px] sm:min-h-0">
-              <div className="overflow-x-auto pr-[96px] [-ms-overflow-style:none] [scrollbar-width:none] sm:pr-0 [&::-webkit-scrollbar]:hidden">
-                <div className="flex min-w-max flex-nowrap items-center gap-1 sm:flex-wrap sm:justify-end sm:gap-2">
-                  <button
-                    disabled={isDownloading}
-                    className="h-8 shrink-0 rounded-md border px-2 py-1.5 text-[11px] disabled:opacity-50 sm:px-3 sm:py-1.5 sm:text-sm"
-                    style={{ borderColor: "var(--color-customBorder)" }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (isDownloading) return;
-                      downloadSelectedItems();
-                    }}
-                  >
-                    {isDownloading ? (
-                      "다운로드 중..."
-                    ) : (
-                      <LuDownload className="font-bold" />
-                    )}
-                  </button>
-
-                  <button
-                    className="h-8 shrink-0 rounded-md border px-2 py-1.5 text-[11px] sm:px-3 sm:py-1.5 sm:text-sm"
-                    style={{ borderColor: "var(--color-customBorder)" }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteSelectedItems();
-                    }}
-                  >
-                    <FaRegTrashAlt />
-                  </button>
-                  <button
-                    ref={bulkMoveButtonRef}
-                    className="h-8 shrink-0 rounded-md border px-2 py-1.5 text-[11px] sm:px-3 sm:py-1.5 sm:text-sm"
-                    style={{ borderColor: "var(--color-customBorder)" }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-
-                      if (!bulkMoveButtonRef.current) return;
-
-                      if (bulkMoveMenuLocation.x !== -1) {
-                        setBulkMoveMenuLocation({
-                          x: -1,
-                          y: -1,
-                          id: "",
-                          fileType: "",
-                          parentId: "",
-                        });
-                        return;
-                      }
-
-                      const pos = getElementPositionInContent(
-                        bulkMoveButtonRef.current,
-                      );
-
-                      setLocation({
-                        x: -1,
-                        y: -1,
-                      });
-
-                      setLocation2({
-                        x: -1,
-                        y: -1,
-                        id: "",
-                        fileType: "",
-                        parentId: "",
-                      });
-
-                      setBulkMoveMenuLocation({
-                        x: pos.x,
-                        y: pos.y,
-                        id: "",
-                        fileType: "",
-                        parentId: "",
-                      });
-                    }}
-                  >
-                    <TbFolderSymlink />
-                  </button>
-                  <button
-                    className="h-8 shrink-0 rounded-md border px-2 py-1.5 text-[11px] sm:px-3 sm:py-1.5 sm:text-sm"
-                    style={{ borderColor: "var(--color-customBorder)" }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      selectAllItemsInCurrentPage();
-                    }}
-                  >
-                    <BiSelectMultiple />
-                  </button>
-
-                  <button
-                    className="h-8 shrink-0 rounded-md border px-2 py-1.5 text-[11px] sm:px-3 sm:py-1.5 sm:text-sm"
-                    style={{ borderColor: "var(--color-customBorder)" }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      clearSelectedItems();
-                    }}
-                  >
-                    <IoClose />
-                  </button>
-                </div>
-              </div>
-
-              <div className="absolute bottom-0 right-0 text-[11px] sm:static sm:mt-0 sm:text-sm">
-                {selectedItems.length}개 선택됨
-              </div>
-            </div>
-          </div>
+          />
         )}
 
         <div className="w-full">
@@ -1857,376 +1276,48 @@ export default function UserPage({ id }: Props) {
               <div className="m-8 flex select-none flex-wrap justify-center gap-8 sm:justify-start">
                 <AnimatePresence>
                   {folders.map((folder: any, idx: number) => {
-                    const folderInputId = folder.title.replace(":", "-");
                     const folderChecked = isSelected(folder.id, "folder");
-
                     return (
-                      <motion.div
-                        data-folder-id={folder.id}
-                        className={`actioned z-40 flex w-[112px] select-none sm:w-[140px] ${
-                          folder.id !== "temp" && "cursor-pointer"
-                        } flex-col items-center`}
+                      <FolderCard
                         key={folder.title}
-                        onClick={() => {
-                          if (folder.id === "temp") return;
-
-                          if (isBulkMoveMode && selectedItems.length > 0) {
-                            moveSelectedItemsToFolder(
-                              folder.id,
-                              folder.realTitle,
-                            );
-                            return;
-                          }
-
-                          router.push(`/folder/${folder.id}`);
-                        }}
-                        layout
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 20 }}
-                        transition={{ duration: 0.8 }}
-                        onDragOver={(e: React.DragEvent<HTMLDivElement>) => {
-                          e.preventDefault();
-                          if (folder.id === "temp") return;
-                          setDragOverFolderId(folder.id);
-                        }}
-                        onDragLeave={() => {
-                          setDragOverFolderId(null);
-                        }}
-                        onDrop={(e: React.DragEvent<HTMLDivElement>) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-
-                          if (folder.id === "temp") {
-                            setDragOverFolderId(null);
-                            return;
-                          }
-
-                          const dragType = e.dataTransfer.getData("drag-type");
-                          const itemId = e.dataTransfer.getData("item-id");
-                          const title = e.dataTransfer.getData("item-title");
-                          const parentId =
-                            e.dataTransfer.getData("item-parent");
-
-                          if (!itemId) {
-                            setDragOverFolderId(null);
-                            return;
-                          }
-
-                          if (dragType === "file") {
-                            moveFileToFolder(
-                              itemId,
-                              title,
-                              parentId,
-                              folder.id,
-                              folder.realTitle,
-                            );
-                          } else if (dragType === "folder") {
-                            moveFolderToFolder(
-                              itemId,
-                              title,
-                              parentId,
-                              folder.id,
-                              folder.realTitle,
-                            );
-                          }
-
-                          setIsDesktopFileDragging(false);
-                          setDragOverFolderId(null);
-                        }}
-                        onContextMenu={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          setLocation({
-                            x: -1,
-                            y: -1,
-                          });
-                          const pos = getMenuPositionInContent(e);
-                          setLocation2({
-                            x: pos.x,
-                            y: pos.y,
-                            id: folder.id,
-                            fileType: "folder",
-                            parentId: folder.parentId,
-                          });
-                        }}
-                        onPointerDown={(e) => {
-                          if (e.pointerType === "mouse") return;
-                          if (folder.id === "temp") return;
-
-                          (
-                            e.currentTarget as HTMLDivElement
-                          ).setPointerCapture?.(e.pointerId);
-
-                          touchDragRef.current = {
-                            pointerId: e.pointerId,
-                            startX: e.clientX,
-                            startY: e.clientY,
-                            dragging: false,
-                            itemType: "folder",
-                            itemId: folder.id,
-                            title: folder.realTitle,
-                            parentId: folder.parentId,
-                          };
-                        }}
-                        onPointerMove={(e) => {
-                          const t = touchDragRef.current;
-                          if (!t) return;
-                          if (e.pointerType === "mouse") return;
-                          if (t.pointerId !== e.pointerId) return;
-                          if (t.itemType !== "folder") return;
-
-                          const dist = Math.hypot(
-                            e.clientX - t.startX,
-                            e.clientY - t.startY,
-                          );
-
-                          if (!t.dragging && dist > 15) {
-                            t.dragging = true;
-                          }
-
-                          if (!t.dragging) return;
-
-                          e.preventDefault();
-
-                          setDraggingFolderId(t.itemId);
-                          setTouchGhost({
-                            title: t.title,
-                            x: e.clientX,
-                            y: e.clientY,
-                          });
-
-                          const el = document.elementFromPoint(
-                            e.clientX,
-                            e.clientY,
-                          ) as HTMLElement | null;
-                          const previewEl = el?.closest(
-                            "[data-preview-zone='true']",
-                          ) as HTMLElement | null;
-                          const folderEl = el?.closest(
-                            "[data-folder-id]",
-                          ) as HTMLElement | null;
-
-                          if (previewEl) {
-                            setIsPreviewZoneActive(false);
-                            setDragOverFolderId(null);
-                            return;
-                          }
-
-                          const targetFolderId = folderEl?.dataset.folderId;
-                          if (targetFolderId && targetFolderId !== t.itemId) {
-                            setDragOverFolderId(targetFolderId);
-                          } else {
-                            setDragOverFolderId(null);
-                          }
-                        }}
-                        onPointerUp={(e) => {
-                          const t = touchDragRef.current;
-                          if (!t) return;
-                          if (e.pointerType === "mouse") return;
-                          if (t.pointerId !== e.pointerId) return;
-                          if (t.itemType !== "folder") return;
-
-                          if (t.dragging) {
-                            e.preventDefault();
-
-                            const el = document.elementFromPoint(
-                              e.clientX,
-                              e.clientY,
-                            ) as HTMLElement | null;
-                            const folderEl = el?.closest(
-                              "[data-folder-id]",
-                            ) as HTMLElement | null;
-
-                            const targetFolderId = folderEl?.dataset.folderId;
-                            if (targetFolderId && targetFolderId !== t.itemId) {
-                              const targetFolder = folders.find(
-                                (f: any) => f.id === targetFolderId,
-                              );
-                              moveFolderToFolder(
-                                t.itemId,
-                                t.title,
-                                t.parentId,
-                                targetFolderId,
-                                targetFolder?.realTitle,
-                              );
-                            }
-                          }
-
-                          (
-                            e.currentTarget as HTMLDivElement
-                          ).releasePointerCapture?.(e.pointerId);
-                          touchDragRef.current = null;
-                          resetDragVisualState();
-                        }}
-                        onPointerCancel={(e) => {
-                          (
-                            e.currentTarget as HTMLDivElement
-                          ).releasePointerCapture?.(e.pointerId);
-                          touchDragRef.current = null;
-                          resetDragVisualState();
-                        }}
-                      >
-                        <div
-                          draggable={folder.id !== "temp"}
-                          onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
-                            if (folder.id === "temp") return;
-
-                            e.dataTransfer.setData("drag-type", "folder");
-                            e.dataTransfer.setData("item-id", folder.id);
-                            e.dataTransfer.setData(
-                              "item-title",
-                              folder.realTitle,
-                            );
-                            e.dataTransfer.setData(
-                              "item-parent",
-                              folder.parentId,
-                            );
-
-                            setDraggingFolderId(folder.id);
-                          }}
-                          onDragEnd={() => {
-                            resetDragVisualState();
-                          }}
-                          style={{
-                            backgroundColor:
-                              dragOverFolderId === folder.id
-                                ? "rgba(0,0,255,0.12)"
-                                : "var(--color-bg-primary)",
-                            transition:
-                              "background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease",
-                            transform:
-                              draggingFolderId === folder.id
-                                ? "scale(0.96)"
-                                : dragOverFolderId === folder.id
-                                  ? "scale(1.04)"
-                                  : "scale(1)",
-                            boxShadow:
-                              dragOverFolderId === folder.id
-                                ? "0 0 0 2px rgba(59,130,246,0.6), 0 12px 28px rgba(0,0,0,0.12)"
-                                : draggingFolderId === folder.id
-                                  ? "0 10px 24px rgba(0,0,0,0.18)"
-                                  : folderChecked
-                                    ? "0 0 0 2px rgba(59,130,246,0.45)"
-                                    : "none",
-                            opacity: draggingFolderId === folder.id ? 0.35 : 1,
-                            touchAction: "none",
-                          }}
-                          className="relative h-[160px] w-[112px] rounded-md border-2 border-customBorder sm:h-[200px] sm:w-[140px]"
-                        >
-                          {folder.user === session?.user?.email && (
-                            <>
-                              <div className="absolute bottom-2 right-1 z-20">
-                                <label
-                                  className="flex cursor-pointer items-center gap-1 px-2 py-1 text-xs"
-                                  style={{
-                                    borderColor: "var(--color-customBorder)",
-                                    backgroundColor: "var(--color-bg-primary)",
-                                    color: "var(--color-primary)",
-                                  }}
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <CustomCheckbox
-                                    checked={folderChecked}
-                                    onChange={() =>
-                                      toggleSelectedItem({
-                                        id: folder.id,
-                                        type: "folder",
-                                        title: folder.realTitle,
-                                        parentId: folder.parentId,
-                                      })
-                                    }
-                                  />
-                                </label>
-                              </div>
-
-                              <div className="absolute left-2 top-2 z-10">
-                                <Heart
-                                  data={folder}
-                                  liked={folder.liked}
-                                  setData={setTestSwitch}
-                                />
-                              </div>
-
-                              <div
-                                className="absolute end-0 p-1"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  deleteFolder(folder.id);
-                                }}
-                              >
-                                <IoIosClose />
-                              </div>
-                            </>
-                          )}
-
-                          <div className="ml-4 mr-4 flex h-full items-center justify-center">
-                            {folder.id === "temp" ? (
-                              <div className="flex items-center justify-center text-center">
-                                <SpinnerMini />
-                              </div>
-                            ) : (
-                              <div className="flex w-full items-center justify-center text-center">
-                                <FaRegFolderOpen className="text-7xl" />
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        <div
-                          className="w-full"
-                          onClick={(e) => {
-                            e.stopPropagation();
-
-                            if (
-                              owner == session?.user?.email ||
-                              id == undefined
-                            ) {
-                              if (folder.id !== "temp") {
-                                handleEditTitle(
-                                  e,
-                                  (idx + 1) * -1 * 1000,
-                                  folderInputId,
-                                );
-                                setCurrentDataId(folder.id);
-                              }
-                            }
-                          }}
-                        >
-                          {modSwitch == (idx + 1) * -1 * 1000 ? (
-                            <div>
-                              <input
-                                id={folderInputId}
-                                className="w-full text-center text-black outline-none"
-                                value={folder.realTitle}
-                                onContextMenu={(e) => {
-                                  e.stopPropagation();
-                                }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                }}
-                                onChange={(e) => {
-                                  let temp = folders.slice(0);
-                                  temp[idx].realTitle = e.target.value;
-                                  setFolders(temp);
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key == "Enter") {
-                                    editTitle(
-                                      folder.id,
-                                      folders[idx].realTitle,
-                                    );
-                                  }
-                                }}
-                              ></input>
-                            </div>
-                          ) : (
-                            <div className="text-overflow-2 w-full text-center">
-                              {folder.realTitle}
-                            </div>
-                          )}
-                        </div>
-                      </motion.div>
+                        folder={folder}
+                        idx={idx}
+                        folderChecked={folderChecked}
+                        modSwitch={modSwitch}
+                        currentDataId={currentDataId}
+                        sessionEmail={session?.user?.email}
+                        owner={owner}
+                        pageId={id}
+                        draggingFolderId={draggingFolderId}
+                        dragOverFolderId={dragOverFolderId}
+                        folders={folders}
+                        setFolders={setFolders}
+                        setDraggingFolderId={setDraggingFolderId}
+                        setTouchGhost={setTouchGhost}
+                        setDragOverFolderId={setDragOverFolderId}
+                        setIsPreviewZoneActive={setIsPreviewZoneActive}
+                        setLocation={setLocation}
+                        setLocation2={setLocation2}
+                        setCurrentDataId={setCurrentDataId}
+                        setModSwitch={setModSwitch}
+                        setTestSwitch={setTestSwitch}
+                        touchDragRef={touchDragRef}
+                        isSelected={isSelected}
+                        toggleSelectedItem={toggleSelectedItem}
+                        deleteFolder={deleteFolder}
+                        moveFolderToFolder={moveFolderToFolder}
+                        moveSelectedItemsToFolder={moveSelectedItemsToFolder}
+                        handleEditTitle={handleEditTitle}
+                        editTitle={editTitle}
+                        getMenuPositionInContent={getMenuPositionInContent}
+                        resetDragVisualState={resetDragVisualState}
+                        moveFileToFolder={moveFileToFolder}
+                        routerPushFolder={(folderId) =>
+                          router.push(`/folder/${folderId}`)
+                        }
+                        selectedItems={selectedItems}
+                        clearSelectedItems={clearSelectedItems}
+                      />
                     );
                   })}
                 </AnimatePresence>
@@ -2254,320 +1345,44 @@ export default function UserPage({ id }: Props) {
                   )}
 
                   {datas.map((data: any, idx: number) => {
-                    const inputId = data?.title.replace(":", "-");
                     const dataChecked = isSelected(data.id, "file");
 
                     return (
-                      <motion.div
-                        className={`actioned z-40 flex w-[112px] select-none sm:w-[140px] ${
-                          data.id !== "temp" && "cursor-pointer"
-                        } flex-col items-center`}
+                      <FileCard
                         key={data.title}
-                        onPointerDown={(e) => {
-                          if (e.pointerType === "mouse") return;
-                          if (data.id === "temp") return;
-
-                          (
-                            e.currentTarget as HTMLDivElement
-                          ).setPointerCapture?.(e.pointerId);
-                          touchDragRef.current = {
-                            pointerId: e.pointerId,
-                            startX: e.clientX,
-                            startY: e.clientY,
-                            dragging: false,
-                            itemType: "file",
-                            itemId: data.id,
-                            title: data.realTitle,
-                            parentId: data.parentId,
-                          };
-                        }}
-                        onPointerMove={(e) => {
-                          const t = touchDragRef.current;
-                          if (!t) return;
-                          if (e.pointerType === "mouse") return;
-                          if (t.pointerId !== e.pointerId) return;
-                          if (t.itemType !== "file") return;
-
-                          const dist = Math.hypot(
-                            e.clientX - t.startX,
-                            e.clientY - t.startY,
-                          );
-
-                          if (!t.dragging && dist > 15) {
-                            t.dragging = true;
-                          }
-
-                          if (!t.dragging) return;
-
-                          e.preventDefault();
-
-                          setDraggingFileId(t.itemId);
-                          setTouchGhost({
-                            title: t.title,
-                            x: e.clientX,
-                            y: e.clientY,
-                          });
-
-                          const el = document.elementFromPoint(
-                            e.clientX,
-                            e.clientY,
-                          ) as HTMLElement | null;
-                          const previewZoneEl = el?.closest(
-                            "[data-preview-zone='true']",
-                          ) as HTMLElement | null;
-                          const previewPanelEl = el?.closest(
-                            "[data-preview-panel='true']",
-                          ) as HTMLElement | null;
-                          const folderEl = el?.closest(
-                            "[data-folder-id]",
-                          ) as HTMLElement | null;
-
-                          if (previewZoneEl || previewPanelEl) {
-                            setIsPreviewZoneActive(true);
-                            setDragOverFolderId(null);
-                          } else if (folderEl?.dataset.folderId) {
-                            setIsPreviewZoneActive(false);
-                            setDragOverFolderId(folderEl.dataset.folderId);
-                          } else {
-                            setIsPreviewZoneActive(false);
-                            setDragOverFolderId(null);
-                          }
-                        }}
-                        onPointerUp={(e) => {
-                          const t = touchDragRef.current;
-                          if (!t) return;
-                          if (e.pointerType === "mouse") return;
-                          if (t.pointerId !== e.pointerId) return;
-                          if (t.itemType !== "file") return;
-
-                          if (t.dragging) {
-                            e.preventDefault();
-
-                            const el = document.elementFromPoint(
-                              e.clientX,
-                              e.clientY,
-                            ) as HTMLElement | null;
-                            const previewZoneEl = el?.closest(
-                              "[data-preview-zone='true']",
-                            ) as HTMLElement | null;
-                            const previewPanelEl = el?.closest(
-                              "[data-preview-panel='true']",
-                            ) as HTMLElement | null;
-                            const folderEl = el?.closest(
-                              "[data-folder-id]",
-                            ) as HTMLElement | null;
-
-                            if (previewZoneEl || previewPanelEl) {
-                              openPreviewFile(t.itemId, t.title);
-                            } else {
-                              const folderId = folderEl?.dataset.folderId;
-                              if (folderId) {
-                                const targetFolder = folders.find(
-                                  (f: any) => f.id === folderId,
-                                );
-                                moveFileToFolder(
-                                  t.itemId,
-                                  t.title,
-                                  t.parentId,
-                                  folderId,
-                                  targetFolder?.realTitle,
-                                );
-                              }
-                            }
-                          }
-
-                          (
-                            e.currentTarget as HTMLDivElement
-                          ).releasePointerCapture?.(e.pointerId);
-                          touchDragRef.current = null;
-                          resetDragVisualState();
-                        }}
-                        onPointerCancel={(e) => {
-                          (
-                            e.currentTarget as HTMLDivElement
-                          ).releasePointerCapture?.(e.pointerId);
-                          touchDragRef.current = null;
-                          resetDragVisualState();
-                        }}
-                        onClick={() => {
-                          if (data.id === "temp") return;
-                          if (isPreviewMode) {
-                            openPreviewFile(data.id, data.realTitle);
-                            return;
-                          }
-                          router.push(`/text/${data.id}`);
-                        }}
-                        layout
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 20 }}
-                        transition={{ duration: 0.8 }}
-                        onContextMenu={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          setLocation({
-                            x: -1,
-                            y: -1,
-                          });
-                          const pos = getMenuPositionInContent(e);
-                          setLocation2({
-                            x: pos.x,
-                            y: pos.y,
-                            id: data.id,
-                            fileType: "file",
-                            parentId: data.parentId,
-                          });
-                        }}
-                      >
-                        <div
-                          draggable={data.id !== "temp"}
-                          onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
-                            if (data.id === "temp") return;
-
-                            e.dataTransfer.setData("drag-type", "file");
-                            e.dataTransfer.setData("item-id", data.id);
-                            e.dataTransfer.setData(
-                              "item-title",
-                              data.realTitle,
-                            );
-                            e.dataTransfer.setData(
-                              "item-parent",
-                              data.parentId,
-                            );
-                            e.dataTransfer.effectAllowed = "move";
-
-                            requestAnimationFrame(() => {
-                              setDraggingFileId(data.id);
-                              setIsDesktopFileDragging(true);
-                            });
-                          }}
-                          onDragEnd={() => {
-                            setIsDesktopFileDragging(false);
-                            resetDragVisualState();
-                          }}
-                          style={{
-                            backgroundColor: "var(--color-bg-primary)",
-                            transition:
-                              "background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease",
-                            touchAction: "none",
-                            opacity: draggingFileId === data.id ? 0.35 : 1,
-                            transform:
-                              draggingFileId === data.id
-                                ? "scale(0.96)"
-                                : "scale(1)",
-                            boxShadow:
-                              draggingFileId === data.id
-                                ? "0 10px 24px rgba(0,0,0,0.18)"
-                                : dataChecked
-                                  ? "0 0 0 2px rgba(59,130,246,0.45)"
-                                  : "none",
-                          }}
-                          className="relative h-[160px] w-[112px] rounded-md border-2 border-customBorder sm:h-[200px] sm:w-[140px]"
-                        >
-                          {data.user === session?.user?.email && (
-                            <>
-                              <div className="absolute bottom-2 right-1">
-                                <label
-                                  className="flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-xs"
-                                  style={{
-                                    borderColor: "var(--color-customBorder)",
-                                    backgroundColor: "var(--color-bg-primary)",
-                                    color: "var(--color-primary)",
-                                  }}
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <CustomCheckbox
-                                    checked={dataChecked}
-                                    onChange={() =>
-                                      toggleSelectedItem({
-                                        id: data.id,
-                                        type: "file",
-                                        title: data.realTitle,
-                                        parentId: data.parentId,
-                                      })
-                                    }
-                                  />
-                                </label>
-                              </div>
-
-                              <div className="absolute left-2 top-2">
-                                <Heart
-                                  data={data}
-                                  liked={data.liked}
-                                  setData={setTestSwitch}
-                                />
-                              </div>
-
-                              <div
-                                className="absolute end-0 p-1"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  deleteWritten(data.id, data.title);
-                                }}
-                              >
-                                <IoIosClose />
-                              </div>
-                            </>
-                          )}
-
-                          <div className="ml-4 mr-4 flex h-full items-center justify-center">
-                            {data.id === "temp" ? (
-                              <div className="flex items-center justify-center text-center">
-                                <SpinnerMini />
-                              </div>
-                            ) : (
-                              <div className="text-overflow flex w-full items-center justify-center text-center">
-                                {data.realTitle}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        <div
-                          className="w-full"
-                          onClick={(e) => {
-                            if (
-                              owner == session?.user?.email ||
-                              id == undefined
-                            ) {
-                              if (data.id !== "temp") {
-                                handleEditTitle(e, idx, inputId);
-                                setCurrentDataId(data.id);
-                              }
-                            }
-                          }}
-                        >
-                          {modSwitch == idx ? (
-                            <div>
-                              <input
-                                id={inputId}
-                                className="w-full text-center text-black outline-none"
-                                value={data.realTitle}
-                                onContextMenu={(e) => {
-                                  e.stopPropagation();
-                                }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                }}
-                                onChange={(e) => {
-                                  let temp = datas.slice(0);
-                                  temp[idx].realTitle = e.target.value;
-                                  setDatas(temp);
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key == "Enter") {
-                                    editTitle(data.id, datas[idx].realTitle);
-                                  }
-                                }}
-                              ></input>
-                            </div>
-                          ) : (
-                            <div className="text-overflow-2 w-full text-center">
-                              {data.realTitle}
-                            </div>
-                          )}
-                        </div>
-                      </motion.div>
+                        data={data}
+                        idx={idx}
+                        dataChecked={dataChecked}
+                        modSwitch={modSwitch}
+                        sessionEmail={session?.user?.email}
+                        owner={owner}
+                        pageId={id}
+                        isPreviewMode={isPreviewMode}
+                        draggingFileId={draggingFileId}
+                        folders={folders}
+                        setDraggingFileId={setDraggingFileId}
+                        setTouchGhost={setTouchGhost}
+                        setDragOverFolderId={setDragOverFolderId}
+                        setIsPreviewZoneActive={setIsPreviewZoneActive}
+                        setLocation={setLocation}
+                        setLocation2={setLocation2}
+                        setCurrentDataId={setCurrentDataId}
+                        setIsDesktopFileDragging={setIsDesktopFileDragging}
+                        setTestSwitch={setTestSwitch}
+                        touchDragRef={touchDragRef}
+                        toggleSelectedItem={toggleSelectedItem}
+                        deleteWritten={deleteWritten}
+                        moveFileToFolder={moveFileToFolder}
+                        handleEditTitle={handleEditTitle}
+                        editTitle={editTitle}
+                        updateFileTitleDraft={updateFileTitleDraft}
+                        getMenuPositionInContent={getMenuPositionInContent}
+                        resetDragVisualState={resetDragVisualState}
+                        openPreviewFile={openPreviewFile}
+                        routerPushText={(textId) =>
+                          router.push(`/text/${textId}`)
+                        }
+                      />
                     );
                   })}
                 </AnimatePresence>
@@ -2576,60 +1391,21 @@ export default function UserPage({ id }: Props) {
           )}
         </div>
 
-        <div
-          data-preview-zone="true"
-          onDragOver={(e: React.DragEvent<HTMLDivElement>) => {
-            if (!isFileDragging) return;
-            e.preventDefault();
-            e.stopPropagation();
+        <PreviewDropZone
+          isFileDragging={isFileDragging}
+          isPreviewZoneActive={isPreviewZoneActive}
+          onDragOverZone={() => {
             setIsPreviewZoneActive(true);
             setDragOverFolderId(null);
           }}
-          onDragLeave={() => {
+          onDragLeaveZone={() => {
             setIsPreviewZoneActive(false);
           }}
-          onDrop={(e: React.DragEvent<HTMLDivElement>) => {
-            e.preventDefault();
-            e.stopPropagation();
-
-            const dragType = e.dataTransfer.getData("drag-type");
-            const itemId = e.dataTransfer.getData("item-id");
-            const title = e.dataTransfer.getData("item-title");
-
-            if (dragType === "file" && itemId) {
-              openPreviewFile(itemId, title);
-            } else {
-              resetDragVisualState();
-            }
+          onDropFile={(itemId, title) => {
+            openPreviewFile(itemId, title);
           }}
-          className="fixed bottom-0 left-0 right-0 z-[9998] px-3 pb-3 md:px-4 md:pb-4"
-          style={{
-            opacity: isFileDragging ? 1 : 0,
-            transform: isFileDragging
-              ? isPreviewZoneActive
-                ? "translateY(0)"
-                : "translateY(0)"
-              : "translateY(20px)",
-            transition: "opacity 0.2s ease, transform 0.2s ease",
-            pointerEvents: isFileDragging ? "auto" : "none",
-          }}
-        >
-          <div
-            className="flex h-[72px] w-full items-center justify-center rounded-2xl border-2 text-base font-bold shadow-2xl md:h-[84px] md:text-lg"
-            style={{
-              backgroundColor: "var(--color-bg-primary)",
-              color: "var(--color-primary)",
-              borderColor: isPreviewZoneActive
-                ? "rgba(59,130,246,0.8)"
-                : "var(--color-customBorder)",
-              boxShadow: isPreviewZoneActive
-                ? "0 0 0 2px rgba(59,130,246,0.45), 0 12px 28px rgba(0,0,0,0.18)"
-                : "0 8px 20px rgba(0,0,0,0.12)",
-            }}
-          >
-            여기에 놓아 미리보기
-          </div>
-        </div>
+          onResetDragVisualState={resetDragVisualState}
+        />
 
         {touchGhost && isAnyDragging && (
           <div
