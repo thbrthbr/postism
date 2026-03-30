@@ -269,6 +269,45 @@ export default function UserPage({ id }: Props) {
     return final.data || [];
   };
 
+  const getAllFoldersFlat = async () => {
+    const result = await fetch(
+      `${process.env.NEXT_PUBLIC_SITE}/api/path?id=${session?.user?.email}`,
+      {
+        method: "GET",
+        cache: "no-store",
+      },
+    );
+
+    const final = await result.json();
+    return final.data || [];
+  };
+
+  const isDescendantFolder = (
+    sourceFolderId: string,
+    targetFolderId: string,
+    allFolders: any[],
+  ) => {
+    let currentParentId = targetFolderId;
+
+    while (currentParentId && currentParentId !== "0") {
+      if (currentParentId === sourceFolderId) {
+        return true;
+      }
+
+      const currentFolder = allFolders.find(
+        (folder: any) => folder.id === currentParentId,
+      );
+
+      if (!currentFolder) {
+        break;
+      }
+
+      currentParentId = currentFolder.parentId;
+    }
+
+    return false;
+  };
+
   const makeUniqueName = (fileName: string, usedNames: Set<string>) => {
     if (!usedNames.has(fileName)) {
       usedNames.add(fileName);
@@ -944,6 +983,27 @@ export default function UserPage({ id }: Props) {
       });
       return false;
     }
+
+    if (type === "folder") {
+      if (itemId === newPath) {
+        toast({
+          title: "알림",
+          description: "현재 폴더와 동일한 위치입니다",
+        });
+        return false;
+      }
+
+      const allFolders = await getAllFoldersFlat();
+
+      if (isDescendantFolder(itemId, newPath, allFolders)) {
+        toast({
+          title: "알림",
+          description: "이동하려는 위치가 현재 폴더 내부에 포함되어 있습니다",
+        });
+        return false;
+      }
+    }
+
     const result = await fetch(
       `${process.env.NEXT_PUBLIC_SITE}/api/children/edit-path`,
       {
@@ -957,6 +1017,7 @@ export default function UserPage({ id }: Props) {
         cache: "no-store",
       },
     );
+
     const final = await result.json();
     if (final.message == "경로 수정 성공") {
       if (type === "folder") {
@@ -1030,6 +1091,20 @@ export default function UserPage({ id }: Props) {
     targetFolderTitle?: string,
   ) => {
     if (folderId === targetFolderId) {
+      toast({
+        title: "알림",
+        description: "현재 폴더와 동일한 위치입니다",
+      });
+      return;
+    }
+
+    const allFolders = await getAllFoldersFlat();
+
+    if (isDescendantFolder(folderId, targetFolderId, allFolders)) {
+      toast({
+        title: "알림",
+        description: "이동하려는 위치가 현재 폴더 내부에 포함되어 있습니다",
+      });
       return;
     }
 
@@ -1057,6 +1132,7 @@ export default function UserPage({ id }: Props) {
       );
     }
   };
+
   const deleteSelectedItems = async () => {
     if (selectedItems.length === 0) {
       toast({
@@ -1172,14 +1248,28 @@ export default function UserPage({ id }: Props) {
       return;
     }
 
-    if (
-      selectedItems.some(
-        (item) => item.type === "folder" && item.id === targetFolderId,
-      )
-    ) {
+    const selectedFolders = selectedItems.filter(
+      (item) => item.type === "folder",
+    );
+
+    if (selectedFolders.some((item) => item.id === targetFolderId)) {
       toast({
         title: "알림",
-        description: "자기 자신 폴더로는 이동할 수 없습니다",
+        description: "현재 폴더와 동일한 위치입니다",
+      });
+      return;
+    }
+
+    const allFolders = await getAllFoldersFlat();
+
+    const hasInvalidFolderMove = selectedFolders.some((item) =>
+      isDescendantFolder(item.id, targetFolderId, allFolders),
+    );
+
+    if (hasInvalidFolderMove) {
+      toast({
+        title: "알림",
+        description: "이동하려는 위치가 현재 폴더 내부에 포함되어 있습니다",
       });
       return;
     }
