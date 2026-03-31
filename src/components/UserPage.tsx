@@ -1434,7 +1434,7 @@ export default function UserPage({ id }: Props) {
               <div className="m-8 flex select-none flex-wrap justify-center gap-8 sm:justify-start">
                 <AnimatePresence mode="popLayout">
                   {viewMode === "card" ? (
-                    <motion.div className="flex flex-wrap gap-8 sm:justify-start">
+                    <motion.div className="flex flex-wrap justify-center gap-8 sm:justify-start">
                       {(owner == session?.user?.email || id == undefined) && (
                         <motion.div
                           className="flex h-auto max-h-[160px] w-[112px] flex-col items-center sm:max-h-[200px] sm:w-[140px]"
