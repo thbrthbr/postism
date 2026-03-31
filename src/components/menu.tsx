@@ -224,6 +224,16 @@ export default function Menu({
             </button>
           </div>
           <div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                customFunctions?.openHelp?.();
+              }}
+            >
+              도움말
+            </button>
+          </div>
+          <div>
             <button onClick={() => signOut()}>로그아웃</button>
           </div>
         </>
@@ -232,6 +242,16 @@ export default function Menu({
         <>
           <div className="flex">
             <ThemeSelect />
+          </div>
+          <div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                customFunctions?.openHelp?.();
+              }}
+            >
+              도움말
+            </button>
           </div>
           <div>
             {!logined && (

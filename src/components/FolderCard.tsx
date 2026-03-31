@@ -79,6 +79,7 @@ interface FolderCardProps {
     parentId: string;
   }[];
   clearSelectedItems: () => void;
+  canManage: boolean;
 }
 
 export default function FolderCard({
@@ -114,6 +115,7 @@ export default function FolderCard({
   routerPushFolder,
   selectedItems,
   clearSelectedItems,
+  canManage,
 }: FolderCardProps) {
   const folderInputId = folder.title.replace(":", "-");
 
@@ -134,6 +136,7 @@ export default function FolderCard({
       exit={{ opacity: 0, y: 20 }}
       transition={{ duration: 0.8 }}
       onDragOver={(e: React.DragEvent<HTMLDivElement>) => {
+        if (!canManage) return;
         e.preventDefault();
         if (folder.id === "temp") return;
         setDragOverFolderId(folder.id);
@@ -142,6 +145,8 @@ export default function FolderCard({
         setDragOverFolderId(null);
       }}
       onDrop={(e: React.DragEvent<HTMLDivElement>) => {
+        if (!canManage) return;
+
         e.preventDefault();
         e.stopPropagation();
 
@@ -166,7 +171,7 @@ export default function FolderCard({
             item.type === (dragType === "folder" ? "folder" : "file"),
         );
 
-        if (isDraggedItemSelected && selectedItems.length > 1) {
+        if (isDraggedItemSelected) {
           moveSelectedItemsToFolder(folder.id, folder.realTitle);
           setDragOverFolderId(null);
           return;
@@ -206,6 +211,7 @@ export default function FolderCard({
         });
       }}
       onPointerDown={(e) => {
+        if (!canManage) return;
         if (e.pointerType === "mouse") return;
         if (folder.id === "temp") return;
 
@@ -316,9 +322,9 @@ export default function FolderCard({
       }}
     >
       <div
-        draggable={folder.id !== "temp"}
+        draggable={canManage && folder.id !== "temp"}
         onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
-          if (folder.id === "temp") return;
+          if (!canManage || folder.id === "temp") return;
 
           e.dataTransfer.setData("drag-type", "folder");
           e.dataTransfer.setData("item-id", folder.id);
@@ -356,7 +362,7 @@ export default function FolderCard({
         }}
         className="relative h-[160px] w-[112px] rounded-md border-2 border-customBorder sm:h-[200px] sm:w-[140px]"
       >
-        {folder.user === sessionEmail && (
+        {canManage && (
           <>
             <div className="absolute bottom-2 right-1 z-20">
               <label

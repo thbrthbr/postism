@@ -43,6 +43,7 @@ import type {
   TouchGhost,
   TouchDragState,
 } from "@/types/explorer";
+import HelpModal from "@/components/HelpModal";
 
 interface Props {
   id?: string;
@@ -85,8 +86,13 @@ export default function UserPage({ id }: Props) {
   const [isPreviewZoneActive, setIsPreviewZoneActive] = useState(false);
   const [isDesktopFileDragging, setIsDesktopFileDragging] = useState(false);
   const [isBulkMoveMode, setIsBulkMoveMode] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   const router = useRouter();
+
+  const canManage = id
+    ? session?.user?.email === owner
+    : !!session?.user?.email;
 
   const touchDragRef = useRef<TouchDragState>(null);
 
@@ -159,6 +165,12 @@ export default function UserPage({ id }: Props) {
     },
   );
 
+  const getQueryEmail = () => {
+    if (session?.user?.email) return session.user.email;
+    if (id && owner) return owner;
+    return "";
+  };
+
   const getMenuPositionInContent = (e: React.MouseEvent | MouseEvent) => {
     const container = contentAreaRef.current;
 
@@ -198,8 +210,9 @@ export default function UserPage({ id }: Props) {
   };
 
   const getAllFoldersFlat = async () => {
-    if (!session?.user?.email) return [];
-    const final = await fetchAllFoldersFlat(session.user.email);
+    const email = getQueryEmail();
+    if (!email) return [];
+    const final = await fetchAllFoldersFlat(email);
     return final.data || [];
   };
 
@@ -385,12 +398,10 @@ export default function UserPage({ id }: Props) {
   };
 
   const getFolders = async () => {
-    if (!session?.user?.email) return;
+    const email = getQueryEmail();
+    if (!email) return [];
 
-    const tempfolders = await fetchFoldersByParentId(
-      session.user.email,
-      id || "0",
-    );
+    const tempfolders = await fetchFoldersByParentId(email, id || "0");
 
     const sorted = tempfolders.data
       .sort((x: any, y: any) => x.order - y.order)
@@ -404,14 +415,20 @@ export default function UserPage({ id }: Props) {
 
     setFolders(finalSorted);
     setFoldersCount([finalSorted.length - 1]);
+
+    return finalSorted;
   };
 
   const getWritten = async () => {
-    if (!session?.user?.email) return;
+    const email = getQueryEmail();
+
+    if (!email) {
+      return;
+    }
 
     await getFolders();
 
-    const texts = await fetchTextsByParentId(session.user.email, id || "0");
+    const texts = await fetchTextsByParentId(email, id || "0");
 
     const sorted = texts.data
       .sort((x: any, y: any) => x.order - y.order)
@@ -733,6 +750,13 @@ export default function UserPage({ id }: Props) {
     folderId: string,
     folderTitle?: string,
   ) => {
+    if (!canManage) {
+      toast({
+        title: "알림",
+        description: "이동 권한이 없습니다",
+      });
+      return;
+    }
     const result = await appSwal.fire({
       title: "파일 이동",
       text: folderTitle
@@ -763,11 +787,18 @@ export default function UserPage({ id }: Props) {
     targetFolderId: string,
     targetFolderTitle?: string,
   ) => {
-    if (folderId === targetFolderId) {
+    if (!canManage) {
       toast({
         title: "알림",
-        description: "현재 폴더와 동일한 위치입니다",
+        description: "이동 권한이 없습니다",
       });
+      return;
+    }
+    if (folderId === targetFolderId) {
+      // toast({
+      //   title: "알림",
+      //   description: "현재 폴더와 동일한 위치입니다",
+      // });
       return;
     }
 
@@ -903,6 +934,13 @@ export default function UserPage({ id }: Props) {
     targetFolderId: string,
     targetFolderTitle?: string,
   ) => {
+    if (!canManage) {
+      toast({
+        title: "알림",
+        description: "이동 권한이 없습니다",
+      });
+      return;
+    }
     if (selectedItems.length === 0) {
       toast({
         title: "알림",
@@ -1055,16 +1093,20 @@ export default function UserPage({ id }: Props) {
     if (!isMounted.current) {
       isMounted.current = true;
     }
+
     if (id === undefined) {
-      if (session && session?.user?.email !== previousEmail) {
+      if (session?.user?.email && session.user.email !== previousEmail) {
         getWritten();
-        setPreviousEmail(session?.user?.email);
+        setPreviousEmail(session.user.email);
       }
-    } else {
+      return;
+    }
+
+    if (session?.user?.email || owner) {
       getWritten();
       setPreviousEmail(session?.user?.email);
     }
-  }, [session]);
+  }, [session?.user?.email, owner, id]);
 
   useEffect(() => {
     if (testSwitch.changeTo !== null) {
@@ -1078,6 +1120,7 @@ export default function UserPage({ id }: Props) {
 
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden md:flex-row">
+      <HelpModal open={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
       {isDownloading && (
         <div
           className="fixed inset-0 z-[10000] flex flex-col items-center justify-center gap-4"
@@ -1171,6 +1214,7 @@ export default function UserPage({ id }: Props) {
               customFunctions={{
                 addText: uploadWritten,
                 addFolder: addFolders,
+                openHelp: () => setIsHelpOpen(true),
               }}
             />
           ) : (
@@ -1180,6 +1224,7 @@ export default function UserPage({ id }: Props) {
               customFunctions={{
                 addText: uploadWritten,
                 addFolder: addFolders,
+                openHelp: () => setIsHelpOpen(true),
               }}
             />
           ))}
@@ -1317,6 +1362,7 @@ export default function UserPage({ id }: Props) {
                         }
                         selectedItems={selectedItems}
                         clearSelectedItems={clearSelectedItems}
+                        canManage={canManage}
                       />
                     );
                   })}
@@ -1382,6 +1428,7 @@ export default function UserPage({ id }: Props) {
                         routerPushText={(textId) =>
                           router.push(`/text/${textId}`)
                         }
+                        canManage={canManage}
                       />
                     );
                   })}

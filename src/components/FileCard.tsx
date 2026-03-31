@@ -75,6 +75,7 @@ interface FileCardProps {
   resetDragVisualState: () => void;
   openPreviewFile: (fileId: string, title: string) => void;
   routerPushText: (textId: string) => void;
+  canManage: boolean;
 }
 
 export default function FileCard({
@@ -108,6 +109,7 @@ export default function FileCard({
   resetDragVisualState,
   openPreviewFile,
   routerPushText,
+  canManage,
 }: FileCardProps) {
   const inputId = data?.title.replace(":", "-");
 
@@ -118,6 +120,7 @@ export default function FileCard({
       } flex-col items-center`}
       key={data.title}
       onPointerDown={(e) => {
+        if (!canManage) return;
         if (e.pointerType === "mouse") return;
         if (data.id === "temp") return;
 
@@ -265,9 +268,9 @@ export default function FileCard({
       }}
     >
       <div
-        draggable={data.id !== "temp"}
+        draggable={canManage && data.id !== "temp"}
         onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
-          if (data.id === "temp") return;
+          if (!canManage || data.id === "temp") return;
 
           e.dataTransfer.setData("drag-type", "file");
           e.dataTransfer.setData("item-id", data.id);
@@ -300,7 +303,7 @@ export default function FileCard({
         }}
         className="relative h-[160px] w-[112px] rounded-md border-2 border-customBorder sm:h-[200px] sm:w-[140px]"
       >
-        {data.user === sessionEmail && (
+        {canManage && (
           <>
             <div className="absolute bottom-2 right-1">
               <label
