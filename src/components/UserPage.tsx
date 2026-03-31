@@ -44,6 +44,10 @@ import type {
   TouchDragState,
 } from "@/types/explorer";
 import HelpModal from "@/components/HelpModal";
+import Heart from "./Heart";
+import CustomCheckbox from "./CustomCheckbox";
+import FileListItem from "@/components/FileListItem";
+import FolderListItem from "@/components/FolderListItem";
 
 interface Props {
   id?: string;
@@ -87,6 +91,12 @@ export default function UserPage({ id }: Props) {
   const [isDesktopFileDragging, setIsDesktopFileDragging] = useState(false);
   const [isBulkMoveMode, setIsBulkMoveMode] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+
+  const [viewMode, setViewMode] = useState<"card" | "list">(() => {
+    if (typeof window === "undefined") return "card";
+    const saved = window.localStorage.getItem("explorer-view-mode");
+    return saved === "list" ? "list" : "card";
+  });
 
   const router = useRouter();
 
@@ -162,8 +172,14 @@ export default function UserPage({ id }: Props) {
       datas,
       folders,
       toast,
+      onSuccess: clearSelectedItems,
     },
   );
+
+  const toggleViewMode = () => {
+    setViewMode((prev) => (prev === "card" ? "list" : "card"));
+    closeAllMenus();
+  };
 
   const getQueryEmail = () => {
     if (session?.user?.email) return session.user.email;
@@ -1118,6 +1134,10 @@ export default function UserPage({ id }: Props) {
     }
   }, [testSwitch]);
 
+  useEffect(() => {
+    window.localStorage.setItem("explorer-view-mode", viewMode);
+  }, [viewMode]);
+
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden md:flex-row">
       <HelpModal open={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
@@ -1215,6 +1235,8 @@ export default function UserPage({ id }: Props) {
                 addText: uploadWritten,
                 addFolder: addFolders,
                 openHelp: () => setIsHelpOpen(true),
+                toggleViewMode,
+                viewMode,
               }}
             />
           ) : (
@@ -1225,6 +1247,8 @@ export default function UserPage({ id }: Props) {
                 addText: uploadWritten,
                 addFolder: addFolders,
                 openHelp: () => setIsHelpOpen(true),
+                toggleViewMode,
+                viewMode,
               }}
             />
           ))}
@@ -1320,118 +1344,214 @@ export default function UserPage({ id }: Props) {
 
               <div className="m-8 flex select-none flex-wrap justify-center gap-8 sm:justify-start">
                 <AnimatePresence>
-                  {folders.map((folder: any, idx: number) => {
-                    const folderChecked = isSelected(folder.id, "folder");
-                    return (
-                      <FolderCard
-                        key={folder.title}
-                        folder={folder}
-                        idx={idx}
-                        folderChecked={folderChecked}
-                        modSwitch={modSwitch}
-                        currentDataId={currentDataId}
-                        sessionEmail={session?.user?.email}
-                        owner={owner}
-                        pageId={id}
-                        draggingFolderId={draggingFolderId}
-                        dragOverFolderId={dragOverFolderId}
-                        folders={folders}
-                        setFolders={setFolders}
-                        setDraggingFolderId={setDraggingFolderId}
-                        setTouchGhost={setTouchGhost}
-                        setDragOverFolderId={setDragOverFolderId}
-                        setIsPreviewZoneActive={setIsPreviewZoneActive}
-                        setLocation={setLocation}
-                        setLocation2={setLocation2}
-                        setCurrentDataId={setCurrentDataId}
-                        setModSwitch={setModSwitch}
-                        setTestSwitch={setTestSwitch}
-                        touchDragRef={touchDragRef}
-                        isSelected={isSelected}
-                        toggleSelectedItem={toggleSelectedItem}
-                        deleteFolder={deleteFolder}
-                        moveFolderToFolder={moveFolderToFolder}
-                        moveSelectedItemsToFolder={moveSelectedItemsToFolder}
-                        handleEditTitle={handleEditTitle}
-                        editTitle={editTitle}
-                        getMenuPositionInContent={getMenuPositionInContent}
-                        resetDragVisualState={resetDragVisualState}
-                        moveFileToFolder={moveFileToFolder}
-                        routerPushFolder={(folderId) =>
-                          router.push(`/folder/${folderId}`)
-                        }
-                        selectedItems={selectedItems}
-                        clearSelectedItems={clearSelectedItems}
-                        canManage={canManage}
-                      />
-                    );
-                  })}
+                  {viewMode === "card" ? (
+                    folders.map((folder: any, idx: number) => {
+                      const folderChecked = isSelected(folder.id, "folder");
+                      return (
+                        <FolderCard
+                          key={folder.title}
+                          folder={folder}
+                          idx={idx}
+                          folderChecked={folderChecked}
+                          modSwitch={modSwitch}
+                          currentDataId={currentDataId}
+                          sessionEmail={session?.user?.email}
+                          owner={owner}
+                          pageId={id}
+                          draggingFolderId={draggingFolderId}
+                          dragOverFolderId={dragOverFolderId}
+                          folders={folders}
+                          setFolders={setFolders}
+                          setDraggingFolderId={setDraggingFolderId}
+                          setTouchGhost={setTouchGhost}
+                          setDragOverFolderId={setDragOverFolderId}
+                          setIsPreviewZoneActive={setIsPreviewZoneActive}
+                          setLocation={setLocation}
+                          setLocation2={setLocation2}
+                          setCurrentDataId={setCurrentDataId}
+                          setModSwitch={setModSwitch}
+                          setTestSwitch={setTestSwitch}
+                          touchDragRef={touchDragRef}
+                          isSelected={isSelected}
+                          toggleSelectedItem={toggleSelectedItem}
+                          deleteFolder={deleteFolder}
+                          moveFolderToFolder={moveFolderToFolder}
+                          moveSelectedItemsToFolder={moveSelectedItemsToFolder}
+                          handleEditTitle={handleEditTitle}
+                          editTitle={editTitle}
+                          getMenuPositionInContent={getMenuPositionInContent}
+                          resetDragVisualState={resetDragVisualState}
+                          moveFileToFolder={moveFileToFolder}
+                          routerPushFolder={(folderId) =>
+                            router.push(`/folder/${folderId}`)
+                          }
+                          selectedItems={selectedItems}
+                          clearSelectedItems={clearSelectedItems}
+                          canManage={
+                            id
+                              ? session?.user?.email === owner
+                              : !!session?.user?.email
+                          }
+                        />
+                      );
+                    })
+                  ) : (
+                    <motion.div layout className="flex w-full flex-col gap-2">
+                      {folders.map((folder: any, idx: number) => {
+                        const folderChecked = isSelected(folder.id, "folder");
+
+                        return (
+                          <FolderListItem
+                            key={folder.title}
+                            folder={folder}
+                            folderChecked={folderChecked}
+                            canManage={canManage}
+                            sessionEmail={session?.user?.email}
+                            owner={owner}
+                            pageId={id}
+                            toggleSelectedItem={toggleSelectedItem}
+                            setTestSwitch={setTestSwitch}
+                            getMenuPositionInContent={getMenuPositionInContent}
+                            openItemMenu={openItemMenu}
+                            routerPushFolder={(folderId) =>
+                              router.push(`/folder/${folderId}`)
+                            }
+                            idx={idx}
+                            modSwitch={modSwitch}
+                            folders={folders}
+                            setFolders={setFolders}
+                            setCurrentDataId={setCurrentDataId}
+                            handleEditTitle={handleEditTitle}
+                            editTitle={editTitle}
+                          />
+                        );
+                      })}
+                    </motion.div>
+                  )}
                 </AnimatePresence>
               </div>
 
               <div className="m-8 flex select-none flex-wrap justify-center gap-8 sm:justify-start">
-                <AnimatePresence>
-                  {(owner == session?.user?.email || id == undefined) && (
-                    <motion.div
-                      className="flex h-auto max-h-[160px] w-[112px] flex-col items-center sm:max-h-[200px] sm:w-[140px]"
-                      key={0}
-                      layout
-                      layoutId="addButton"
-                      onClick={addWritten}
-                      onContextMenu={(e) => {
-                        e.stopPropagation();
-                      }}
-                    >
-                      <div className="h-[160px] w-[112px] rounded-md border-2 border-dashed border-customBorder sm:h-[200px] sm:w-[140px]">
-                        <div className="ml-4 mr-4 flex h-full cursor-pointer items-center justify-center text-center text-4xl">
-                          +
+                <AnimatePresence mode="popLayout">
+                  {viewMode === "card" ? (
+                    <motion.div className="flex flex-wrap gap-8">
+                      {(owner == session?.user?.email || id == undefined) && (
+                        <motion.div
+                          className="flex h-auto max-h-[160px] w-[112px] flex-col items-center sm:max-h-[200px] sm:w-[140px]"
+                          key={0}
+                          layout
+                          layoutId="addButton"
+                          onClick={addWritten}
+                          onContextMenu={(e) => {
+                            e.stopPropagation();
+                          }}
+                        >
+                          <div className="h-[160px] w-[112px] rounded-md border-2 border-dashed border-customBorder sm:h-[200px] sm:w-[140px]">
+                            <div className="ml-4 mr-4 flex h-full cursor-pointer items-center justify-center text-center text-4xl">
+                              +
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+
+                      {datas.map((data: any, idx: number) => {
+                        const dataChecked = isSelected(data.id, "file");
+
+                        return (
+                          <FileCard
+                            key={data.title}
+                            data={data}
+                            idx={idx}
+                            dataChecked={dataChecked}
+                            modSwitch={modSwitch}
+                            sessionEmail={session?.user?.email}
+                            owner={owner}
+                            pageId={id}
+                            isPreviewMode={isPreviewMode}
+                            draggingFileId={draggingFileId}
+                            folders={folders}
+                            setDraggingFileId={setDraggingFileId}
+                            setTouchGhost={setTouchGhost}
+                            setDragOverFolderId={setDragOverFolderId}
+                            setIsPreviewZoneActive={setIsPreviewZoneActive}
+                            setLocation={setLocation}
+                            setLocation2={setLocation2}
+                            setCurrentDataId={setCurrentDataId}
+                            setIsDesktopFileDragging={setIsDesktopFileDragging}
+                            setTestSwitch={setTestSwitch}
+                            touchDragRef={touchDragRef}
+                            toggleSelectedItem={toggleSelectedItem}
+                            deleteWritten={deleteWritten}
+                            moveFileToFolder={moveFileToFolder}
+                            handleEditTitle={handleEditTitle}
+                            editTitle={editTitle}
+                            updateFileTitleDraft={updateFileTitleDraft}
+                            getMenuPositionInContent={getMenuPositionInContent}
+                            resetDragVisualState={resetDragVisualState}
+                            openPreviewFile={openPreviewFile}
+                            routerPushText={(textId) =>
+                              router.push(`/text/${textId}`)
+                            }
+                            canManage={
+                              id
+                                ? session?.user?.email === owner
+                                : !!session?.user?.email
+                            }
+                          />
+                        );
+                      })}
+                    </motion.div>
+                  ) : (
+                    <motion.div layout className="flex w-full flex-col gap-2">
+                      {(owner == session?.user?.email || id == undefined) && (
+                        <div
+                          className="flex w-full cursor-pointer items-center justify-between rounded-lg border border-dashed px-3 py-2"
+                          style={{
+                            borderColor: "var(--color-customBorder)",
+                            backgroundColor: "var(--color-bg-primary)",
+                            color: "var(--color-primary)",
+                          }}
+                          onClick={addWritten}
+                          onContextMenu={(e) => {
+                            e.stopPropagation();
+                          }}
+                        >
+                          <div className="flex min-w-0 items-center gap-3">
+                            <span className="text-lg">+</span>
+                            <span className="truncate">새 파일 추가</span>
+                          </div>
                         </div>
-                      </div>
+                      )}
+
+                      {datas.map((data: any, idx: number) => {
+                        const dataChecked = isSelected(data.id, "file");
+
+                        return (
+                          <FileListItem
+                            key={data.title}
+                            data={data}
+                            dataChecked={dataChecked}
+                            canManage={canManage}
+                            isPreviewMode={isPreviewMode}
+                            toggleSelectedItem={toggleSelectedItem}
+                            setTestSwitch={setTestSwitch}
+                            getMenuPositionInContent={getMenuPositionInContent}
+                            openItemMenu={openItemMenu}
+                            openPreviewFile={openPreviewFile}
+                            routerPushText={(textId) =>
+                              router.push(`/text/${textId}`)
+                            }
+                            idx={idx}
+                            modSwitch={modSwitch}
+                            setCurrentDataId={setCurrentDataId}
+                            handleEditTitle={handleEditTitle}
+                            editTitle={editTitle}
+                            updateFileTitleDraft={updateFileTitleDraft}
+                          />
+                        );
+                      })}
                     </motion.div>
                   )}
-
-                  {datas.map((data: any, idx: number) => {
-                    const dataChecked = isSelected(data.id, "file");
-
-                    return (
-                      <FileCard
-                        key={data.title}
-                        data={data}
-                        idx={idx}
-                        dataChecked={dataChecked}
-                        modSwitch={modSwitch}
-                        sessionEmail={session?.user?.email}
-                        owner={owner}
-                        pageId={id}
-                        isPreviewMode={isPreviewMode}
-                        draggingFileId={draggingFileId}
-                        folders={folders}
-                        setDraggingFileId={setDraggingFileId}
-                        setTouchGhost={setTouchGhost}
-                        setDragOverFolderId={setDragOverFolderId}
-                        setIsPreviewZoneActive={setIsPreviewZoneActive}
-                        setLocation={setLocation}
-                        setLocation2={setLocation2}
-                        setCurrentDataId={setCurrentDataId}
-                        setIsDesktopFileDragging={setIsDesktopFileDragging}
-                        setTestSwitch={setTestSwitch}
-                        touchDragRef={touchDragRef}
-                        toggleSelectedItem={toggleSelectedItem}
-                        deleteWritten={deleteWritten}
-                        moveFileToFolder={moveFileToFolder}
-                        handleEditTitle={handleEditTitle}
-                        editTitle={editTitle}
-                        updateFileTitleDraft={updateFileTitleDraft}
-                        getMenuPositionInContent={getMenuPositionInContent}
-                        resetDragVisualState={resetDragVisualState}
-                        openPreviewFile={openPreviewFile}
-                        routerPushText={(textId) =>
-                          router.push(`/text/${textId}`)
-                        }
-                        canManage={canManage}
-                      />
-                    );
-                  })}
                 </AnimatePresence>
               </div>
             </>

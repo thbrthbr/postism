@@ -227,6 +227,18 @@ export default function Menu({
             <button
               onClick={(e) => {
                 e.stopPropagation();
+                customFunctions?.toggleViewMode?.();
+              }}
+            >
+              {customFunctions?.viewMode === "list"
+                ? "카드로 보기"
+                : "리스트로 보기"}
+            </button>
+          </div>
+          <div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
                 customFunctions?.openHelp?.();
               }}
             >
@@ -242,6 +254,18 @@ export default function Menu({
         <>
           <div className="flex">
             <ThemeSelect />
+          </div>
+          <div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                customFunctions?.toggleViewMode?.();
+              }}
+            >
+              {customFunctions?.viewMode === "list"
+                ? "카드로 보기"
+                : "리스트로 보기"}
+            </button>
           </div>
           <div>
             <button

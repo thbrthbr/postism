@@ -8,9 +8,9 @@ export default function SpinnerMini() {
       style={{
         width: 0,
         height: 0,
-        borderLeft: "30px solid transparent",
-        borderRight: "30px solid transparent",
-        borderBottom: "30px solid var(--color-primary)",
+        borderLeft: "20px solid transparent",
+        borderRight: "20px solid transparent",
+        borderBottom: "20px solid var(--color-primary)",
       }}
       animate={{
         scale: [0.5],

@@ -15,6 +15,7 @@ interface UseDownloadParams {
   datas: any[];
   folders: any[];
   toast: (args: { title: string; description: string }) => void;
+  onSuccess?: () => void;
 }
 
 export default function useDownload({
@@ -23,6 +24,7 @@ export default function useDownload({
   datas,
   folders,
   toast,
+  onSuccess,
 }: UseDownloadParams) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadMessage, setDownloadMessage] = useState("");
@@ -95,6 +97,8 @@ export default function useDownload({
           description: "파일을 다운로드했습니다",
         });
 
+        onSuccess?.();
+
         return;
       }
 
@@ -136,6 +140,8 @@ export default function useDownload({
         title: "알림",
         description: "선택한 항목들을 zip으로 다운로드했습니다",
       });
+
+      onSuccess?.();
     } catch (error) {
       console.error(error);
       toast({
