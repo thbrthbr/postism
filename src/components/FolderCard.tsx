@@ -80,6 +80,25 @@ interface FolderCardProps {
   }[];
   clearSelectedItems: () => void;
   canManage: boolean;
+  draggingFileId: string | null;
+  folderReorderTarget: {
+    draggingId: string;
+    targetId: string;
+    position: "before" | "after";
+  } | null;
+  setFolderReorderTarget: React.Dispatch<
+    React.SetStateAction<{
+      draggingId: string;
+      targetId: string;
+      position: "before" | "after";
+    } | null>
+  >;
+  reorderFolderItems: (
+    draggingId: string,
+    targetId: string,
+    position: "before" | "after",
+  ) => Promise<void>;
+  canReorderFolders: (draggingId: string, targetId: string) => boolean;
 }
 
 export default function FolderCard({
@@ -116,9 +135,25 @@ export default function FolderCard({
   selectedItems,
   clearSelectedItems,
   canManage,
+  draggingFileId,
+  folderReorderTarget,
+  setFolderReorderTarget,
+  reorderFolderItems,
+  canReorderFolders,
 }: FolderCardProps) {
   const folderInputId = folder.title.replace(":", "-");
+  const getFolderDropZone = (
+    clientX: number,
+    element: HTMLElement,
+  ): "before" | "inside" | "after" => {
+    const rect = element.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const third = rect.width / 3;
 
+    if (x < third) return "before";
+    if (x > third * 2) return "after";
+    return "inside";
+  };
   return (
     <motion.div
       data-folder-id={folder.id}
@@ -139,7 +174,48 @@ export default function FolderCard({
         if (!canManage) return;
         e.preventDefault();
         if (folder.id === "temp") return;
-        setDragOverFolderId(folder.id);
+
+        const dragType = e.dataTransfer.getData("drag-type");
+        const itemId = e.dataTransfer.getData("item-id");
+
+        if (!itemId || itemId === folder.id) {
+          setDragOverFolderId(null);
+          setFolderReorderTarget(null);
+          return;
+        }
+
+        if (dragType === "file") {
+          // 파일은 기존 유지: 어디든 폴더 내부 이동
+          setDragOverFolderId(folder.id);
+          setFolderReorderTarget(null);
+          return;
+        }
+
+        if (dragType === "folder") {
+          const zone = getFolderDropZone(
+            e.clientX,
+            e.currentTarget as HTMLDivElement,
+          );
+
+          if (zone === "inside") {
+            setDragOverFolderId(folder.id);
+            setFolderReorderTarget(null);
+            return;
+          }
+
+          if (!canReorderFolders(itemId, folder.id)) {
+            setDragOverFolderId(null);
+            setFolderReorderTarget(null);
+            return;
+          }
+
+          setDragOverFolderId(null);
+          setFolderReorderTarget({
+            draggingId: itemId,
+            targetId: folder.id,
+            position: zone,
+          });
+        }
       }}
       onDragLeave={() => {
         setDragOverFolderId(null);
@@ -152,6 +228,7 @@ export default function FolderCard({
 
         if (folder.id === "temp") {
           setDragOverFolderId(null);
+          setFolderReorderTarget(null);
           return;
         }
 
@@ -162,18 +239,7 @@ export default function FolderCard({
 
         if (!itemId) {
           setDragOverFolderId(null);
-          return;
-        }
-
-        const isDraggedItemSelected = selectedItems.some(
-          (item) =>
-            item.id === itemId &&
-            item.type === (dragType === "folder" ? "folder" : "file"),
-        );
-
-        if (isDraggedItemSelected) {
-          moveSelectedItemsToFolder(folder.id, folder.realTitle);
-          setDragOverFolderId(null);
+          setFolderReorderTarget(null);
           return;
         }
 
@@ -185,17 +251,32 @@ export default function FolderCard({
             folder.id,
             folder.realTitle,
           );
-        } else if (dragType === "folder") {
-          moveFolderToFolder(
-            itemId,
-            title,
-            parentId,
-            folder.id,
-            folder.realTitle,
-          );
+          setDragOverFolderId(null);
+          setFolderReorderTarget(null);
+          return;
         }
 
-        setDragOverFolderId(null);
+        if (dragType === "folder") {
+          const zone = getFolderDropZone(
+            e.clientX,
+            e.currentTarget as HTMLDivElement,
+          );
+
+          if (zone === "inside") {
+            moveFolderToFolder(
+              itemId,
+              title,
+              parentId,
+              folder.id,
+              folder.realTitle,
+            );
+          } else {
+            reorderFolderItems(itemId, folder.id, zone);
+          }
+
+          setDragOverFolderId(null);
+          setFolderReorderTarget(null);
+        }
       }}
       onContextMenu={(e) => {
         e.stopPropagation();
@@ -269,9 +350,22 @@ export default function FolderCard({
 
         const targetFolderId = folderEl?.dataset.folderId;
         if (targetFolderId && targetFolderId !== t.itemId) {
-          setDragOverFolderId(targetFolderId);
+          const zone = getFolderDropZone(e.clientX, folderEl);
+
+          if (zone === "inside") {
+            setDragOverFolderId(targetFolderId);
+            setFolderReorderTarget(null);
+          } else {
+            setDragOverFolderId(null);
+            setFolderReorderTarget({
+              draggingId: t.itemId,
+              targetId: targetFolderId,
+              position: zone,
+            });
+          }
         } else {
           setDragOverFolderId(null);
+          setFolderReorderTarget(null);
         }
       }}
       onPointerUp={(e) => {
@@ -294,16 +388,22 @@ export default function FolderCard({
 
           const targetFolderId = folderEl?.dataset.folderId;
           if (targetFolderId && targetFolderId !== t.itemId) {
-            const targetFolder = folders.find(
-              (f: any) => f.id === targetFolderId,
-            );
-            moveFolderToFolder(
-              t.itemId,
-              t.title,
-              t.parentId,
-              targetFolderId,
-              targetFolder?.realTitle,
-            );
+            const zone = getFolderDropZone(e.clientX, folderEl);
+
+            if (zone === "inside") {
+              const targetFolder = folders.find(
+                (f: any) => f.id === targetFolderId,
+              );
+              moveFolderToFolder(
+                t.itemId,
+                t.title,
+                t.parentId,
+                targetFolderId,
+                targetFolder?.realTitle,
+              );
+            } else {
+              reorderFolderItems(t.itemId, targetFolderId, zone);
+            }
           }
         }
 

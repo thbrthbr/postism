@@ -199,3 +199,30 @@ export const fetchPreviewTextById = async (textId: string) => {
 
   return result.json();
 };
+
+export const editItemOrder = async ({
+  id,
+  order,
+  type,
+  email,
+}: {
+  id: string;
+  order: number;
+  type: "text" | "folder";
+  email?: string | null;
+}) => {
+  try {
+    const res = await fetch("/api/edit-order", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id, order, type, email }),
+    });
+
+    return await res.json();
+  } catch (error) {
+    console.error("editItemOrder error:", error);
+    return null;
+  }
+};

@@ -5,6 +5,8 @@ import { IoIosClose } from "react-icons/io";
 import SpinnerMini from "@/components/spinner-mini";
 import Heart from "@/components/Heart";
 import CustomCheckbox from "@/components/CustomCheckbox";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface FileCardProps {
   data: any;
@@ -87,169 +89,55 @@ export default function FileCard({
   owner,
   pageId,
   isPreviewMode,
-  draggingFileId,
-  folders,
-  setDraggingFileId,
-  setTouchGhost,
-  setDragOverFolderId,
-  setIsPreviewZoneActive,
   setLocation,
   setLocation2,
   setCurrentDataId,
-  setIsDesktopFileDragging,
   setTestSwitch,
-  touchDragRef,
   toggleSelectedItem,
   deleteWritten,
-  moveFileToFolder,
   handleEditTitle,
   editTitle,
   updateFileTitleDraft,
   getMenuPositionInContent,
-  resetDragVisualState,
   openPreviewFile,
   routerPushText,
   canManage,
 }: FileCardProps) {
   const inputId = data?.title.replace(":", "-");
 
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: data.id,
+    disabled: !canManage || data.id === "temp",
+  });
+
+  const sortableStyle = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : undefined,
+    opacity: isDragging ? 0.35 : 1,
+  };
+
   return (
     <motion.div
+      ref={setNodeRef}
+      data-file-id={data.id}
+      style={sortableStyle}
       className={`actioned z-40 flex w-[112px] select-none sm:w-[140px] ${
         data.id !== "temp" && "cursor-pointer"
       } flex-col items-center`}
       key={data.title}
-      onPointerDown={(e) => {
-        if (!canManage) return;
-        if (e.pointerType === "mouse") return;
-        if (data.id === "temp") return;
-
-        (e.currentTarget as HTMLDivElement).setPointerCapture?.(e.pointerId);
-        touchDragRef.current = {
-          pointerId: e.pointerId,
-          startX: e.clientX,
-          startY: e.clientY,
-          dragging: false,
-          itemType: "file",
-          itemId: data.id,
-          title: data.realTitle,
-          parentId: data.parentId,
-        };
-      }}
-      onPointerMove={(e) => {
-        const t = touchDragRef.current;
-        if (!t) return;
-        if (e.pointerType === "mouse") return;
-        if (t.pointerId !== e.pointerId) return;
-        if (t.itemType !== "file") return;
-
-        const dist = Math.hypot(e.clientX - t.startX, e.clientY - t.startY);
-
-        if (!t.dragging && dist > 15) {
-          t.dragging = true;
-        }
-
-        if (!t.dragging) return;
-
-        e.preventDefault();
-
-        setDraggingFileId(t.itemId);
-        setTouchGhost({
-          title: t.title,
-          x: e.clientX,
-          y: e.clientY,
-        });
-
-        const el = document.elementFromPoint(
-          e.clientX,
-          e.clientY,
-        ) as HTMLElement | null;
-        const previewZoneEl = el?.closest(
-          "[data-preview-zone='true']",
-        ) as HTMLElement | null;
-        const previewPanelEl = el?.closest(
-          "[data-preview-panel='true']",
-        ) as HTMLElement | null;
-        const folderEl = el?.closest("[data-folder-id]") as HTMLElement | null;
-
-        if (previewZoneEl || previewPanelEl) {
-          setIsPreviewZoneActive(true);
-          setDragOverFolderId(null);
-        } else if (folderEl?.dataset.folderId) {
-          setIsPreviewZoneActive(false);
-          setDragOverFolderId(folderEl.dataset.folderId);
-        } else {
-          setIsPreviewZoneActive(false);
-          setDragOverFolderId(null);
-        }
-      }}
-      onPointerUp={(e) => {
-        const t = touchDragRef.current;
-        if (!t) return;
-        if (e.pointerType === "mouse") return;
-        if (t.pointerId !== e.pointerId) return;
-        if (t.itemType !== "file") return;
-
-        if (t.dragging) {
-          e.preventDefault();
-
-          const el = document.elementFromPoint(
-            e.clientX,
-            e.clientY,
-          ) as HTMLElement | null;
-          const previewZoneEl = el?.closest(
-            "[data-preview-zone='true']",
-          ) as HTMLElement | null;
-          const previewPanelEl = el?.closest(
-            "[data-preview-panel='true']",
-          ) as HTMLElement | null;
-          const folderEl = el?.closest(
-            "[data-folder-id]",
-          ) as HTMLElement | null;
-
-          if (previewZoneEl || previewPanelEl) {
-            openPreviewFile(t.itemId, t.title);
-          } else {
-            const folderId = folderEl?.dataset.folderId;
-            if (folderId) {
-              const targetFolder = folders.find((f: any) => f.id === folderId);
-              moveFileToFolder(
-                t.itemId,
-                t.title,
-                t.parentId,
-                folderId,
-                targetFolder?.realTitle,
-              );
-            }
-          }
-        }
-
-        (e.currentTarget as HTMLDivElement).releasePointerCapture?.(
-          e.pointerId,
-        );
-        touchDragRef.current = null;
-        resetDragVisualState();
-      }}
-      onPointerCancel={(e) => {
-        (e.currentTarget as HTMLDivElement).releasePointerCapture?.(
-          e.pointerId,
-        );
-        touchDragRef.current = null;
-        resetDragVisualState();
-      }}
-      onClick={() => {
-        if (data.id === "temp") return;
-        if (isPreviewMode) {
-          openPreviewFile(data.id, data.realTitle);
-          return;
-        }
-        routerPushText(data.id);
-      }}
       layout
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 20 }}
-      transition={{ duration: 0.8 }}
+      transition={{ duration: 0.25 }}
       onContextMenu={(e) => {
         e.stopPropagation();
         e.preventDefault();
@@ -268,40 +156,28 @@ export default function FileCard({
       }}
     >
       <div
-        draggable={canManage && data.id !== "temp"}
-        onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
-          if (!canManage || data.id === "temp") return;
-
-          e.dataTransfer.setData("drag-type", "file");
-          e.dataTransfer.setData("item-id", data.id);
-          e.dataTransfer.setData("item-title", data.realTitle);
-          e.dataTransfer.setData("item-parent", data.parentId);
-          e.dataTransfer.effectAllowed = "move";
-
-          requestAnimationFrame(() => {
-            setDraggingFileId(data.id);
-            setIsDesktopFileDragging(true);
-          });
-        }}
-        onDragEnd={() => {
-          setIsDesktopFileDragging(false);
-          resetDragVisualState();
-        }}
+        {...attributes}
+        {...listeners}
         style={{
           backgroundColor: "var(--color-bg-primary)",
           transition:
             "background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease",
           touchAction: "none",
-          opacity: draggingFileId === data.id ? 0.35 : 1,
-          transform: draggingFileId === data.id ? "scale(0.96)" : "scale(1)",
-          boxShadow:
-            draggingFileId === data.id
-              ? "0 10px 24px rgba(0,0,0,0.18)"
-              : dataChecked
-                ? "0 0 0 2px rgba(59,130,246,0.45)"
-                : "none",
+          boxShadow: isDragging
+            ? "0 10px 24px rgba(0,0,0,0.18)"
+            : dataChecked
+              ? "0 0 0 2px rgba(59,130,246,0.45)"
+              : "none",
         }}
         className="relative h-[160px] w-[112px] rounded-md border-2 border-customBorder sm:h-[200px] sm:w-[140px]"
+        onClick={() => {
+          if (data.id === "temp") return;
+          if (isPreviewMode) {
+            openPreviewFile(data.id, data.realTitle);
+            return;
+          }
+          routerPushText(data.id);
+        }}
       >
         {canManage && (
           <>
@@ -313,6 +189,7 @@ export default function FileCard({
                   backgroundColor: "var(--color-bg-primary)",
                   color: "var(--color-primary)",
                 }}
+                onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => e.stopPropagation()}
               >
                 <CustomCheckbox
@@ -329,12 +206,17 @@ export default function FileCard({
               </label>
             </div>
 
-            <div className="absolute left-2 top-2">
+            <div
+              className="absolute left-2 top-2"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
               <Heart data={data} liked={data.liked} setData={setTestSwitch} />
             </div>
 
             <div
               className="absolute end-0 p-1"
+              onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
                 deleteWritten(data.id, data.title);
@@ -360,6 +242,7 @@ export default function FileCard({
 
       <div
         className="w-full"
+        onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => {
           if (owner == sessionEmail || pageId == undefined) {
             if (data.id !== "temp") {

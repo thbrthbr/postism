@@ -1,6 +1,7 @@
 "use client";
 
 import Spinner from "@/components/spinner";
+import { useDroppable } from "@dnd-kit/core";
 
 interface PreviewTarget {
   id: string;
@@ -32,16 +33,21 @@ export default function PreviewPanel({
   onDropFile,
   onResetDragVisualState,
 }: Props) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: "preview-panel-drop-zone",
+  });
   return (
     <div
+      ref={setNodeRef}
       className="relative z-10 order-1 flex h-1/2 w-full flex-col overflow-hidden border-b-2 md:order-2 md:h-screen md:w-1/2 md:border-b-0 md:border-l-2"
       style={{
         borderColor: "var(--color-customBorder)",
         backgroundColor: "var(--color-bg-primary)",
         transition: "background-color 0.7s ease, box-shadow 0.2s ease",
-        boxShadow: isPreviewZoneActive
-          ? "inset 0 0 0 2px rgba(59,130,246,0.45)"
-          : "none",
+        boxShadow:
+          isPreviewZoneActive || isOver
+            ? "inset 0 0 0 2px rgba(59,130,246,0.45)"
+            : "none",
       }}
       data-preview-panel="true"
       onDragOver={(e: React.DragEvent<HTMLDivElement>) => {
