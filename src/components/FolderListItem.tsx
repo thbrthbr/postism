@@ -135,35 +135,33 @@ export default function FolderListItem({
         className="flex shrink-0 items-center gap-3"
         onClick={(e) => e.stopPropagation()}
       >
-        {canManage && (
-          <>
-            <button
-              type="button"
-              onClick={() => {
+        <>
+          <button
+            type="button"
+            onClick={() => {
+              toggleSelectedItem({
+                id: folder.id,
+                type: "folder",
+                title: folder.realTitle,
+                parentId: folder.parentId,
+              });
+            }}
+          >
+            <CustomCheckbox
+              checked={folderChecked}
+              onChange={() =>
                 toggleSelectedItem({
                   id: folder.id,
                   type: "folder",
                   title: folder.realTitle,
                   parentId: folder.parentId,
-                });
-              }}
-            >
-              <CustomCheckbox
-                checked={folderChecked}
-                onChange={() =>
-                  toggleSelectedItem({
-                    id: folder.id,
-                    type: "folder",
-                    title: folder.realTitle,
-                    parentId: folder.parentId,
-                  })
-                }
-              />
-            </button>
+                })
+              }
+            />
+          </button>
 
-            <Heart data={folder} liked={folder.liked} setData={setTestSwitch} />
-          </>
-        )}
+          <Heart data={folder} liked={folder.liked} setData={setTestSwitch} />
+        </>
       </div>
     </motion.div>
   );

@@ -179,33 +179,33 @@ export default function FileCard({
           routerPushText(data.id);
         }}
       >
-        {canManage && (
-          <>
-            <div className="absolute bottom-2 right-1">
-              <label
-                className="flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-xs"
-                style={{
-                  borderColor: "var(--color-customBorder)",
-                  backgroundColor: "var(--color-bg-primary)",
-                  color: "var(--color-primary)",
-                }}
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <CustomCheckbox
-                  checked={dataChecked}
-                  onChange={() =>
-                    toggleSelectedItem({
-                      id: data.id,
-                      type: "file",
-                      title: data.realTitle,
-                      parentId: data.parentId,
-                    })
-                  }
-                />
-              </label>
-            </div>
+        <>
+          <div className="absolute bottom-2 right-1">
+            <label
+              className="flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-xs"
+              style={{
+                borderColor: "var(--color-customBorder)",
+                backgroundColor: "var(--color-bg-primary)",
+                color: "var(--color-primary)",
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <CustomCheckbox
+                checked={dataChecked}
+                onChange={() =>
+                  toggleSelectedItem({
+                    id: data.id,
+                    type: "file",
+                    title: data.realTitle,
+                    parentId: data.parentId,
+                  })
+                }
+              />
+            </label>
+          </div>
 
+          {canManage && (
             <div
               className="absolute left-2 top-2"
               onPointerDown={(e) => e.stopPropagation()}
@@ -213,7 +213,8 @@ export default function FileCard({
             >
               <Heart data={data} liked={data.liked} setData={setTestSwitch} />
             </div>
-
+          )}
+          {canManage && (
             <div
               className="absolute end-0 p-1"
               onPointerDown={(e) => e.stopPropagation()}
@@ -224,8 +225,8 @@ export default function FileCard({
             >
               <IoIosClose />
             </div>
-          </>
-        )}
+          )}
+        </>
 
         <div className="ml-4 mr-4 flex h-full items-center justify-center">
           {data.id === "temp" ? (

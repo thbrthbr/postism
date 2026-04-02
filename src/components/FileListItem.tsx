@@ -139,7 +139,7 @@ export default function FileListItem({
         className="flex shrink-0 items-center gap-3"
         onClick={(e) => e.stopPropagation()}
       >
-        {canManage && !isTemp && (
+        {!isTemp && (
           <>
             <button
               type="button"

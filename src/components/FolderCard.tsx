@@ -462,32 +462,32 @@ export default function FolderCard({
         }}
         className="relative h-[160px] w-[112px] rounded-md border-2 border-customBorder sm:h-[200px] sm:w-[140px]"
       >
-        {canManage && (
-          <>
-            <div className="absolute bottom-2 right-1 z-20">
-              <label
-                className="flex cursor-pointer items-center gap-1 px-2 py-1 text-xs"
-                style={{
-                  borderColor: "var(--color-customBorder)",
-                  backgroundColor: "var(--color-bg-primary)",
-                  color: "var(--color-primary)",
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <CustomCheckbox
-                  checked={folderChecked}
-                  onChange={() =>
-                    toggleSelectedItem({
-                      id: folder.id,
-                      type: "folder",
-                      title: folder.realTitle,
-                      parentId: folder.parentId,
-                    })
-                  }
-                />
-              </label>
-            </div>
+        <>
+          <div className="absolute bottom-2 right-1 z-20">
+            <label
+              className="flex cursor-pointer items-center gap-1 px-2 py-1 text-xs"
+              style={{
+                borderColor: "var(--color-customBorder)",
+                backgroundColor: "var(--color-bg-primary)",
+                color: "var(--color-primary)",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <CustomCheckbox
+                checked={folderChecked}
+                onChange={() =>
+                  toggleSelectedItem({
+                    id: folder.id,
+                    type: "folder",
+                    title: folder.realTitle,
+                    parentId: folder.parentId,
+                  })
+                }
+              />
+            </label>
+          </div>
 
+          {canManage && (
             <div className="absolute left-2 top-2 z-10">
               <Heart
                 data={folder}
@@ -495,7 +495,8 @@ export default function FolderCard({
                 setData={setTestSwitch}
               />
             </div>
-
+          )}
+          {canManage && (
             <div
               className="absolute end-0 p-1"
               onClick={(e) => {
@@ -505,9 +506,8 @@ export default function FolderCard({
             >
               <IoIosClose />
             </div>
-          </>
-        )}
-
+          )}
+        </>
         <div className="ml-4 mr-4 flex h-full items-center justify-center">
           {folder.id === "temp" ? (
             <div className="flex items-center justify-center text-center">

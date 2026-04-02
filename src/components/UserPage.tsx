@@ -1794,12 +1794,15 @@ export default function UserPage({ id }: Props) {
               isDownloading={isDownloading}
               bulkMoveMenuOpen={bulkMoveMenuLocation.x !== -1}
               bulkMoveButtonRef={bulkMoveButtonRef}
+              canManage={canManage}
               onDownload={downloadSelectedItems}
               onDelete={deleteSelectedItems}
               onSelectAll={() => selectAllItemsInCurrentPage(folders, datas)}
               onClear={clearSelectedItems}
               onMoveMenuToggle={() => {
+                if (!canManage) return;
                 if (!bulkMoveButtonRef.current) return;
+
                 const pos = getElementPositionInContent(
                   bulkMoveButtonRef.current,
                 );

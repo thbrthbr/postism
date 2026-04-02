@@ -11,6 +11,7 @@ interface Props {
   isDownloading: boolean;
   bulkMoveMenuOpen: boolean;
   bulkMoveButtonRef: React.Ref<HTMLButtonElement>;
+  canManage: boolean;
   onDownload: () => void;
   onDelete: () => void;
   onMoveMenuToggle: () => void;
@@ -23,6 +24,7 @@ export default function SelectionActionBar({
   isDownloading,
   bulkMoveMenuOpen,
   bulkMoveButtonRef,
+  canManage,
   onDownload,
   onDelete,
   onMoveMenuToggle,
@@ -58,29 +60,35 @@ export default function SelectionActionBar({
               )}
             </button>
 
-            <button
-              className="h-8 shrink-0 rounded-md border px-2 py-1.5 text-[11px] sm:px-3 sm:py-1.5 sm:text-sm"
-              style={{ borderColor: "var(--color-customBorder)" }}
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete();
-              }}
-            >
-              <FaRegTrashAlt />
-            </button>
-
-            <button
-              ref={bulkMoveButtonRef}
-              className="h-8 shrink-0 rounded-md border px-2 py-1.5 text-[11px] sm:px-3 sm:py-1.5 sm:text-sm"
-              style={{ borderColor: "var(--color-customBorder)" }}
-              onClick={(e) => {
-                e.stopPropagation();
-                onMoveMenuToggle();
-              }}
-            >
-              <TbFolderSymlink />
-            </button>
-
+            {canManage && (
+              <button
+                disabled={!canManage}
+                className="h-8 shrink-0 rounded-md border px-2 py-1.5 text-[11px] disabled:cursor-not-allowed disabled:opacity-40 sm:px-3 sm:py-1.5 sm:text-sm"
+                style={{ borderColor: "var(--color-customBorder)" }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!canManage) return;
+                  onDelete();
+                }}
+              >
+                <FaRegTrashAlt />
+              </button>
+            )}
+            {canManage && (
+              <button
+                ref={bulkMoveButtonRef}
+                disabled={!canManage}
+                className="h-8 shrink-0 rounded-md border px-2 py-1.5 text-[11px] disabled:cursor-not-allowed disabled:opacity-40 sm:px-3 sm:py-1.5 sm:text-sm"
+                style={{ borderColor: "var(--color-customBorder)" }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!canManage) return;
+                  onMoveMenuToggle();
+                }}
+              >
+                <TbFolderSymlink />
+              </button>
+            )}
             <button
               className="h-8 shrink-0 rounded-md border px-2 py-1.5 text-[11px] sm:px-3 sm:py-1.5 sm:text-sm"
               style={{ borderColor: "var(--color-customBorder)" }}
