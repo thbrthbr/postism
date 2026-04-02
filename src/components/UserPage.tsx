@@ -1852,7 +1852,31 @@ export default function UserPage({ id }: Props) {
                 <div className="m-8 flex select-none flex-wrap justify-center gap-8 sm:justify-start">
                   <AnimatePresence>
                     {viewMode === "card" ? (
-                      folders.map((folder: any, idx: number) => {
+                      displayFolders.map((entry: any) => {
+                        if (entry.type === "placeholder") {
+                          return (
+                            <motion.div
+                              key={entry.id}
+                              layout
+                              initial={{ width: 0, opacity: 0, scale: 0.96 }}
+                              animate={{ width: 112, opacity: 1, scale: 1 }}
+                              exit={{ width: 0, opacity: 0, scale: 0.96 }}
+                              transition={{ duration: 0.18 }}
+                              className="h-[160px] sm:h-[200px] sm:w-[140px]"
+                              style={{
+                                border: "2px dashed var(--color-customBorder)",
+                                borderRadius: "0.375rem",
+                                backgroundColor: "rgba(59,130,246,0.06)",
+                                pointerEvents: "none",
+                              }}
+                            />
+                          );
+                        }
+
+                        const folder = entry.item;
+                        const realIdx = folders.findIndex(
+                          (x: any) => x.id === folder.id,
+                        );
                         const folderChecked = isSelected(folder.id, "folder");
 
                         return (
@@ -1861,94 +1885,6 @@ export default function UserPage({ id }: Props) {
                             folderId={folder.id}
                           >
                             <FolderCard
-                              folder={folder}
-                              idx={idx}
-                              folderChecked={folderChecked}
-                              modSwitch={modSwitch}
-                              currentDataId={currentDataId}
-                              sessionEmail={session?.user?.email}
-                              owner={owner}
-                              pageId={id}
-                              draggingFolderId={draggingFolderId}
-                              dragOverFolderId={dragOverFolderId}
-                              folders={folders}
-                              setFolders={setFolders}
-                              setDraggingFolderId={setDraggingFolderId}
-                              setTouchGhost={setTouchGhost}
-                              setDragOverFolderId={setDragOverFolderId}
-                              setIsPreviewZoneActive={setIsPreviewZoneActive}
-                              setLocation={setLocation}
-                              setLocation2={setLocation2}
-                              setCurrentDataId={setCurrentDataId}
-                              setModSwitch={setModSwitch}
-                              setTestSwitch={setTestSwitch}
-                              touchDragRef={touchDragRef}
-                              isSelected={isSelected}
-                              toggleSelectedItem={toggleSelectedItem}
-                              deleteFolder={deleteFolder}
-                              moveFolderToFolder={moveFolderToFolder}
-                              moveSelectedItemsToFolder={
-                                moveSelectedItemsToFolder
-                              }
-                              handleEditTitle={handleEditTitle}
-                              editTitle={editTitle}
-                              getMenuPositionInContent={
-                                getMenuPositionInContent
-                              }
-                              resetDragVisualState={resetDragVisualState}
-                              moveFileToFolder={moveFileToFolder}
-                              routerPushFolder={(folderId) =>
-                                router.push(`/folder/${folderId}`)
-                              }
-                              selectedItems={selectedItems}
-                              clearSelectedItems={clearSelectedItems}
-                              canManage={
-                                id
-                                  ? session?.user?.email === owner
-                                  : !!session?.user?.email
-                              }
-                              draggingFileId={draggingFileId}
-                              folderReorderTarget={folderReorderTarget}
-                              setFolderReorderTarget={setFolderReorderTarget}
-                              reorderFolderItems={reorderFolderItems}
-                              canReorderFolders={canReorderFolders}
-                            />
-                          </DroppableFolderCard>
-                        );
-                      })
-                    ) : (
-                      <motion.div layout className="flex w-full flex-col gap-2">
-                        {displayFolders.map((entry: any, idx: number) => {
-                          if (entry.type === "placeholder") {
-                            return (
-                              <motion.div
-                                key={entry.id}
-                                layout
-                                initial={{ width: 0, opacity: 0, scale: 0.96 }}
-                                animate={{ width: 112, opacity: 1, scale: 1 }}
-                                exit={{ width: 0, opacity: 0, scale: 0.96 }}
-                                transition={{ duration: 0.18 }}
-                                className="h-[160px] sm:h-[200px] sm:w-[140px]"
-                                style={{
-                                  border:
-                                    "2px dashed var(--color-customBorder)",
-                                  borderRadius: "0.375rem",
-                                  backgroundColor: "rgba(59,130,246,0.06)",
-                                  pointerEvents: "none",
-                                }}
-                              />
-                            );
-                          }
-
-                          const folder = entry.item;
-                          const realIdx = folders.findIndex(
-                            (x: any) => x.id === folder.id,
-                          );
-                          const folderChecked = isSelected(folder.id, "folder");
-
-                          return (
-                            <FolderCard
-                              key={folder.id}
                               folder={folder}
                               idx={realIdx}
                               folderChecked={folderChecked}
@@ -1991,11 +1927,49 @@ export default function UserPage({ id }: Props) {
                               }
                               selectedItems={selectedItems}
                               clearSelectedItems={clearSelectedItems}
-                              canManage={canManage}
+                              canManage={
+                                id
+                                  ? session?.user?.email === owner
+                                  : !!session?.user?.email
+                              }
                               folderReorderTarget={folderReorderTarget}
                               setFolderReorderTarget={setFolderReorderTarget}
                               reorderFolderItems={reorderFolderItems}
                               canReorderFolders={canReorderFolders}
+                            />
+                          </DroppableFolderCard>
+                        );
+                      })
+                    ) : (
+                      <motion.div layout className="flex w-full flex-col gap-2">
+                        {folders.map((folder: any, idx: number) => {
+                          const folderChecked = isSelected(folder.id, "folder");
+
+                          return (
+                            <FolderListItem
+                              key={folder.title}
+                              folder={folder}
+                              folderChecked={folderChecked}
+                              canManage={canManage}
+                              sessionEmail={session?.user?.email}
+                              owner={owner}
+                              pageId={id}
+                              toggleSelectedItem={toggleSelectedItem}
+                              setTestSwitch={setTestSwitch}
+                              getMenuPositionInContent={
+                                getMenuPositionInContent
+                              }
+                              openItemMenu={openItemMenu}
+                              routerPushFolder={(folderId) =>
+                                router.push(`/folder/${folderId}`)
+                              }
+                              idx={idx}
+                              modSwitch={modSwitch}
+                              folders={folders}
+                              setFolders={setFolders}
+                              setCurrentDataId={setCurrentDataId}
+                              handleEditTitle={handleEditTitle}
+                              editTitle={editTitle}
                             />
                           );
                         })}
