@@ -44,6 +44,7 @@ export default function HelpModal({ open, onClose }: HelpModalProps) {
               <p>• 파일을 누르면 해당 파일 열람 가능</p>
               <p>• 폴더를 누르면 해당 폴더로 이동 가능</p>
               <p>• 폴더 내부에서는 뒤로가기 버튼으로 상위 경로로 이동 가능</p>
+              <p>• + 버튼으로 새로운 텍스트 파일 생성 가능</p>
             </div>
           </section>
 
@@ -57,14 +58,30 @@ export default function HelpModal({ open, onClose }: HelpModalProps) {
           </section>
 
           <section>
+            <h3 className="mb-2 font-semibold">메뉴 열기</h3>
+            <div className="space-y-1 opacity-90">
+              <p>• 기본 메뉴: 웹 - 바탕에 우클릭 / 모바일 - 바탕을 길게 클릭</p>
+              <p>
+                • 이동 메뉴: 웹 - 파일 및 폴더 우클릭 / 모바일 - 파일 및 폴더를
+                길게 클릭
+              </p>
+            </div>
+          </section>
+
+          <section>
             <h3 className="mb-2 font-semibold">드래그 앤 드롭</h3>
             <div className="space-y-1 opacity-90">
               <p>
-                • 파일이나 폴더를 다른 폴더로 드래그하면 해당 항목 이동 가능
+                • 파일이나 폴더를 다른 폴더로 드래그하면 해당 폴더로 이동 가능
               </p>
               <p>
                 • 여러 개를 선택한 상태에서 그중 하나를 드래그하면 선택된 항목
                 전체가 이동 가능
+              </p>
+              <p>• 파일을 다른 파일 위에 드래그 후 드롭하면 순서변경 가능</p>
+              <p>
+                • 폴더를 다른 폴더 위에 드래그 후 우측 혹은 좌측에 드롭하면
+                순서변경 가능
               </p>
               <p>• 파일을 하단 미리보기 영역에 드롭하면 미리보기 가능</p>
             </div>
@@ -82,11 +99,18 @@ export default function HelpModal({ open, onClose }: HelpModalProps) {
           </section>
 
           <section>
-            <h3 className="mb-2 font-semibold">편집과 정리</h3>
+            <h3 className="mb-2 font-semibold">업로드</h3>
             <div className="space-y-1 opacity-90">
-              <p>• 제목을 눌러 이름을 수정할 수 가능</p>
+              <p>• 메뉴창의 업로드 버튼을 통해 파일 업로드 가능</p>
+              <p>• 컴퓨터의 파일을 브라우저 창에 드롭하여 업로드 가능</p>
+            </div>
+          </section>
+
+          <section>
+            <h3 className="mb-2 font-semibold">기타 기능</h3>
+            <div className="space-y-1 opacity-90">
+              <p>• 제목을 눌러 파일 및 폴더 이름 수정 가능</p>
               <p>• 하트 버튼으로 즐겨찾기 항목 상단에 배치 가능</p>
-              <p>• 우클릭 또는 메뉴를 통해 추가 기능을 사용 가능</p>
             </div>
           </section>
         </div>
