@@ -5,6 +5,7 @@ import CustomCheckbox from "@/components/CustomCheckbox";
 import { FiFileText } from "react-icons/fi";
 import { motion } from "framer-motion";
 import SpinnerMini from "@/components/spinner-mini";
+import { IoIosClose } from "react-icons/io";
 
 interface FileListItemProps {
   data: any;
@@ -37,6 +38,7 @@ interface FileListItemProps {
   handleEditTitle: (e: React.MouseEvent, idx: number, inputId: string) => void;
   editTitle: (id: string, newTitle: string) => void;
   updateFileTitleDraft: (idx: number, value: string) => void;
+  deleteWritten: (id: string, title: string) => void;
 }
 
 export default function FileListItem({
@@ -56,6 +58,7 @@ export default function FileListItem({
   handleEditTitle,
   editTitle,
   updateFileTitleDraft,
+  deleteWritten,
 }: FileListItemProps) {
   const inputId = data?.title.replace(":", "-");
   const isTemp = data.id === "temp";
@@ -164,7 +167,20 @@ export default function FileListItem({
                 }
               />
             </button>
-            <Heart data={data} liked={data.liked} setData={setTestSwitch} />
+            {canManage && (
+              <Heart data={data} liked={data.liked} setData={setTestSwitch} />
+            )}
+            {canManage && (
+              <div
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deleteWritten(data.id, data.title);
+                }}
+              >
+                <IoIosClose />
+              </div>
+            )}
           </>
         )}
       </div>

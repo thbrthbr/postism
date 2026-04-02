@@ -4,6 +4,7 @@ import Heart from "@/components/Heart";
 import CustomCheckbox from "@/components/CustomCheckbox";
 import { FaRegFolderOpen } from "react-icons/fa";
 import { motion } from "framer-motion";
+import { IoIosClose } from "react-icons/io";
 
 interface FolderListItemProps {
   folder: any;
@@ -38,6 +39,7 @@ interface FolderListItemProps {
   setCurrentDataId: React.Dispatch<React.SetStateAction<string>>;
   handleEditTitle: (e: React.MouseEvent, idx: number, inputId: string) => void;
   editTitle: (id: string, newTitle: string) => void;
+  deleteFolder: (id: string) => void;
 }
 
 export default function FolderListItem({
@@ -56,6 +58,7 @@ export default function FolderListItem({
   setCurrentDataId,
   handleEditTitle,
   editTitle,
+  deleteFolder,
 }: FolderListItemProps) {
   const folderInputId = folder.title.replace(":", "-");
   return (
@@ -159,8 +162,19 @@ export default function FolderListItem({
               }
             />
           </button>
-
-          <Heart data={folder} liked={folder.liked} setData={setTestSwitch} />
+          {canManage && (
+            <Heart data={folder} liked={folder.liked} setData={setTestSwitch} />
+          )}
+          {canManage && (
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                deleteFolder(folder.id);
+              }}
+            >
+              <IoIosClose />
+            </div>
+          )}
         </>
       </div>
     </motion.div>

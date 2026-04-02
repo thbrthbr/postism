@@ -1970,6 +1970,7 @@ export default function UserPage({ id }: Props) {
                               setCurrentDataId={setCurrentDataId}
                               handleEditTitle={handleEditTitle}
                               editTitle={editTitle}
+                              deleteFolder={deleteFolder}
                             />
                           );
                         })}
@@ -2174,6 +2175,7 @@ export default function UserPage({ id }: Props) {
                               handleEditTitle={handleEditTitle}
                               editTitle={editTitle}
                               updateFileTitleDraft={updateFileTitleDraft}
+                              deleteWritten={deleteWritten}
                             />
                           );
                         })}
