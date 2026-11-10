@@ -1,5 +1,9 @@
 "use client";
 
+import { useCallback } from "react";
+import { useSortable } from "@dnd-kit/sortable";
+import { useDroppable } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 import { motion } from "framer-motion";
 import { IoIosClose } from "react-icons/io";
 import { FaRegFolderOpen } from "react-icons/fa";
@@ -142,142 +146,48 @@ export default function FolderCard({
   canReorderFolders,
 }: FolderCardProps) {
   const folderInputId = folder.title.replace(":", "-");
-  const getFolderDropZone = (
-    clientX: number,
-    element: HTMLElement,
-  ): "before" | "inside" | "after" => {
-    const rect = element.getBoundingClientRect();
-    const x = clientX - rect.left;
-    const third = rect.width / 3;
-
-    if (x < third) return "before";
-    if (x > third * 2) return "after";
-    return "inside";
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setSortableRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: `folder-sort:${folder.id}`,
+    disabled: !canManage || folder.id === "temp",
+  });
+  const { setNodeRef: setDropRef } = useDroppable({
+    id: `folder:${folder.id}`,
+    disabled: !canManage || folder.id === "temp",
+  });
+  const setNodeRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      setSortableRef(node);
+      setDropRef(node);
+    },
+    [setSortableRef, setDropRef],
+  );
+  const sortableStyle = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : undefined,
+    opacity: isDragging ? 0.35 : 1,
   };
   return (
     <motion.div
+      ref={setNodeRef}
+      style={sortableStyle}
       data-folder-id={folder.id}
       className={`actioned z-40 flex w-[112px] select-none sm:w-[140px] ${
         folder.id !== "temp" && "cursor-pointer"
       } flex-col items-center`}
       key={folder.title}
-      onClick={() => {
-        if (folder.id === "temp") return;
-        routerPushFolder(folder.id);
-      }}
       layout
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 20 }}
-      transition={{ duration: 0.8 }}
-      onDragOver={(e: React.DragEvent<HTMLDivElement>) => {
-        if (!canManage) return;
-        e.preventDefault();
-        if (folder.id === "temp") return;
-
-        const dragType = e.dataTransfer.getData("drag-type");
-        const itemId = e.dataTransfer.getData("item-id");
-
-        if (!itemId || itemId === folder.id) {
-          setDragOverFolderId(null);
-          setFolderReorderTarget(null);
-          return;
-        }
-
-        if (dragType === "file") {
-          // 파일은 기존 유지: 어디든 폴더 내부 이동
-          setDragOverFolderId(folder.id);
-          setFolderReorderTarget(null);
-          return;
-        }
-
-        if (dragType === "folder") {
-          const zone = getFolderDropZone(
-            e.clientX,
-            e.currentTarget as HTMLDivElement,
-          );
-
-          if (zone === "inside") {
-            setDragOverFolderId(folder.id);
-            setFolderReorderTarget(null);
-            return;
-          }
-
-          if (!canReorderFolders(itemId, folder.id)) {
-            setDragOverFolderId(null);
-            setFolderReorderTarget(null);
-            return;
-          }
-
-          setDragOverFolderId(null);
-          setFolderReorderTarget({
-            draggingId: itemId,
-            targetId: folder.id,
-            position: zone,
-          });
-        }
-      }}
-      onDragLeave={() => {
-        setDragOverFolderId(null);
-      }}
-      onDrop={(e: React.DragEvent<HTMLDivElement>) => {
-        if (!canManage) return;
-
-        e.preventDefault();
-        e.stopPropagation();
-
-        if (folder.id === "temp") {
-          setDragOverFolderId(null);
-          setFolderReorderTarget(null);
-          return;
-        }
-
-        const dragType = e.dataTransfer.getData("drag-type");
-        const itemId = e.dataTransfer.getData("item-id");
-        const title = e.dataTransfer.getData("item-title");
-        const parentId = e.dataTransfer.getData("item-parent");
-
-        if (!itemId) {
-          setDragOverFolderId(null);
-          setFolderReorderTarget(null);
-          return;
-        }
-
-        if (dragType === "file") {
-          moveFileToFolder(
-            itemId,
-            title,
-            parentId,
-            folder.id,
-            folder.realTitle,
-          );
-          setDragOverFolderId(null);
-          setFolderReorderTarget(null);
-          return;
-        }
-
-        if (dragType === "folder") {
-          const zone = getFolderDropZone(
-            e.clientX,
-            e.currentTarget as HTMLDivElement,
-          );
-
-          if (zone === "inside") {
-            moveFolderToFolder(
-              itemId,
-              title,
-              parentId,
-              folder.id,
-              folder.realTitle,
-            );
-          } else {
-            reorderFolderItems(itemId, folder.id, zone);
-          }
-
-          setDragOverFolderId(null);
-          setFolderReorderTarget(null);
-        }
-      }}
+      transition={{ duration: 0.25 }}
       onContextMenu={(e) => {
         e.stopPropagation();
         e.preventDefault();
@@ -291,150 +201,13 @@ export default function FolderCard({
           parentId: folder.parentId,
         });
       }}
-      onPointerDown={(e) => {
-        if (!canManage) return;
-        if (e.pointerType === "mouse") return;
-        if (folder.id === "temp") return;
-
-        (e.currentTarget as HTMLDivElement).setPointerCapture?.(e.pointerId);
-
-        touchDragRef.current = {
-          pointerId: e.pointerId,
-          startX: e.clientX,
-          startY: e.clientY,
-          dragging: false,
-          itemType: "folder",
-          itemId: folder.id,
-          title: folder.realTitle,
-          parentId: folder.parentId,
-        };
-      }}
-      onPointerMove={(e) => {
-        const t = touchDragRef.current;
-        if (!t) return;
-        if (e.pointerType === "mouse") return;
-        if (t.pointerId !== e.pointerId) return;
-        if (t.itemType !== "folder") return;
-
-        const dist = Math.hypot(e.clientX - t.startX, e.clientY - t.startY);
-
-        if (!t.dragging && dist > 15) {
-          t.dragging = true;
-        }
-
-        if (!t.dragging) return;
-
-        e.preventDefault();
-
-        setDraggingFolderId(t.itemId);
-        setTouchGhost({
-          title: t.title,
-          x: e.clientX,
-          y: e.clientY,
-        });
-
-        const el = document.elementFromPoint(
-          e.clientX,
-          e.clientY,
-        ) as HTMLElement | null;
-        const previewEl = el?.closest(
-          "[data-preview-zone='true']",
-        ) as HTMLElement | null;
-        const folderEl = el?.closest("[data-folder-id]") as HTMLElement | null;
-
-        if (previewEl) {
-          setIsPreviewZoneActive(false);
-          setDragOverFolderId(null);
-          return;
-        }
-
-        const targetFolderId = folderEl?.dataset.folderId;
-        if (targetFolderId && targetFolderId !== t.itemId) {
-          const zone = getFolderDropZone(e.clientX, folderEl);
-
-          if (zone === "inside") {
-            setDragOverFolderId(targetFolderId);
-            setFolderReorderTarget(null);
-          } else {
-            setDragOverFolderId(null);
-            setFolderReorderTarget({
-              draggingId: t.itemId,
-              targetId: targetFolderId,
-              position: zone,
-            });
-          }
-        } else {
-          setDragOverFolderId(null);
-          setFolderReorderTarget(null);
-        }
-      }}
-      onPointerUp={(e) => {
-        const t = touchDragRef.current;
-        if (!t) return;
-        if (e.pointerType === "mouse") return;
-        if (t.pointerId !== e.pointerId) return;
-        if (t.itemType !== "folder") return;
-
-        if (t.dragging) {
-          e.preventDefault();
-
-          const el = document.elementFromPoint(
-            e.clientX,
-            e.clientY,
-          ) as HTMLElement | null;
-          const folderEl = el?.closest(
-            "[data-folder-id]",
-          ) as HTMLElement | null;
-
-          const targetFolderId = folderEl?.dataset.folderId;
-          if (targetFolderId && targetFolderId !== t.itemId) {
-            const zone = getFolderDropZone(e.clientX, folderEl);
-
-            if (zone === "inside") {
-              const targetFolder = folders.find(
-                (f: any) => f.id === targetFolderId,
-              );
-              moveFolderToFolder(
-                t.itemId,
-                t.title,
-                t.parentId,
-                targetFolderId,
-                targetFolder?.realTitle,
-              );
-            } else {
-              reorderFolderItems(t.itemId, targetFolderId, zone);
-            }
-          }
-        }
-
-        (e.currentTarget as HTMLDivElement).releasePointerCapture?.(
-          e.pointerId,
-        );
-        touchDragRef.current = null;
-        resetDragVisualState();
-      }}
-      onPointerCancel={(e) => {
-        (e.currentTarget as HTMLDivElement).releasePointerCapture?.(
-          e.pointerId,
-        );
-        touchDragRef.current = null;
-        resetDragVisualState();
-      }}
     >
       <div
-        draggable={canManage && folder.id !== "temp"}
-        onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
-          if (!canManage || folder.id === "temp") return;
-
-          e.dataTransfer.setData("drag-type", "folder");
-          e.dataTransfer.setData("item-id", folder.id);
-          e.dataTransfer.setData("item-title", folder.realTitle);
-          e.dataTransfer.setData("item-parent", folder.parentId);
-
-          setDraggingFolderId(folder.id);
-        }}
-        onDragEnd={() => {
-          resetDragVisualState();
+        {...attributes}
+        {...listeners}
+        onClick={() => {
+          if (folder.id === "temp") return;
+          routerPushFolder(folder.id);
         }}
         style={{
           backgroundColor:
@@ -443,21 +216,14 @@ export default function FolderCard({
               : "var(--color-bg-primary)",
           transition:
             "background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease",
-          transform:
-            draggingFolderId === folder.id
-              ? "scale(0.96)"
-              : dragOverFolderId === folder.id
-                ? "scale(1.04)"
-                : "scale(1)",
           boxShadow:
             dragOverFolderId === folder.id
               ? "0 0 0 2px rgba(59,130,246,0.6), 0 12px 28px rgba(0,0,0,0.12)"
-              : draggingFolderId === folder.id
+              : isDragging
                 ? "0 10px 24px rgba(0,0,0,0.18)"
                 : folderChecked
                   ? "0 0 0 2px rgba(59,130,246,0.45)"
                   : "none",
-          opacity: draggingFolderId === folder.id ? 0.35 : 1,
           touchAction: "none",
         }}
         className="relative h-[160px] w-[112px] rounded-md border-2 border-customBorder sm:h-[200px] sm:w-[140px]"
@@ -471,6 +237,7 @@ export default function FolderCard({
                 backgroundColor: "var(--color-bg-primary)",
                 color: "var(--color-primary)",
               }}
+              onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => e.stopPropagation()}
             >
               <CustomCheckbox
@@ -488,7 +255,11 @@ export default function FolderCard({
           </div>
 
           {canManage && (
-            <div className="absolute left-2 top-2 z-10">
+            <div
+              className="absolute left-2 top-2 z-10"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
               <Heart
                 data={folder}
                 liked={folder.liked}
@@ -499,6 +270,7 @@ export default function FolderCard({
           {canManage && (
             <div
               className="absolute end-0 p-1"
+              onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
                 deleteFolder(folder.id);
@@ -523,6 +295,7 @@ export default function FolderCard({
 
       <div
         className="w-full"
+        onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => {
           e.stopPropagation();
 

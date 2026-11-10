@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { storage } from "../firebase/firebaseConfig";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { usePathname, useRouter } from "next/navigation";
+import { FaRegFolderOpen } from "react-icons/fa";
 import { FaArrowLeft } from "react-icons/fa";
 import Menu from "@/components/menu";
 import Spinner from "@/components/spinner";
@@ -14,7 +15,7 @@ import {
   DragOverlay,
   PointerSensor,
   pointerWithin,
-  useDroppable,
+  type CollisionDetection,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
@@ -68,28 +69,6 @@ interface Props {
   id?: string;
 }
 
-function DroppableFolderCard({
-  folderId,
-  children,
-}: {
-  folderId: string;
-  children: React.ReactNode;
-}) {
-  const { setNodeRef, isOver } = useDroppable({ id: `folder:${folderId}` });
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={{
-        borderRadius: "0.375rem",
-        outline: isOver ? "2px solid rgba(59,130,246,0.55)" : "none",
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
 export default function UserPage({ id }: Props) {
   const { toast } = useToast();
   const pathName = usePathname().split("/")[1];
@@ -126,6 +105,7 @@ export default function UserPage({ id }: Props) {
   const [touchGhost, setTouchGhost] = useState<TouchGhost>(null);
 
   const [desktopDragTitle, setDesktopDragTitle] = useState("");
+  const [activeFolder, setActiveFolder] = useState<any>(null);
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [activeFileTitle, setActiveFileTitle] = useState("");
 
@@ -182,6 +162,7 @@ export default function UserPage({ id }: Props) {
     setFileReorderTarget(null);
     setIsDesktopFileDragging(false);
     setDesktopDragTitle("");
+    setActiveFolder(null);
     setActiveFileId(null);
     setActiveFileTitle("");
     setFolderReorderTarget(null);
@@ -315,51 +296,6 @@ export default function UserPage({ id }: Props) {
       resetDragVisualState();
     }
   };
-
-  const displayFolders = React.useMemo(() => {
-    const base = folders.map((item: any) => ({
-      type: "folder" as const,
-      item,
-    }));
-
-    if (!draggingFolderId || !folderReorderTarget) {
-      return base;
-    }
-
-    const draggingItem = folders.find(
-      (item: any) => item.id === draggingFolderId,
-    );
-    const targetItem = folders.find(
-      (item: any) => item.id === folderReorderTarget.targetId,
-    );
-
-    if (!draggingItem || !targetItem) return base;
-
-    if ((draggingItem.liked === true) !== (targetItem.liked === true)) {
-      return base;
-    }
-
-    const withoutDragging = base.filter(
-      (entry: any) => entry.item.id !== draggingFolderId,
-    );
-
-    const targetIndex = withoutDragging.findIndex(
-      (entry: any) => entry.item.id === folderReorderTarget.targetId,
-    );
-
-    if (targetIndex === -1) return base;
-
-    const insertIndex =
-      folderReorderTarget.position === "before" ? targetIndex : targetIndex + 1;
-
-    const next = [...withoutDragging];
-    next.splice(insertIndex, 0, {
-      type: "placeholder" as const,
-      id: `folder-placeholder-${draggingFolderId}`,
-    });
-
-    return next;
-  }, [folders, draggingFolderId, folderReorderTarget]);
 
   const {
     selectedItems,
@@ -612,8 +548,47 @@ export default function UserPage({ id }: Props) {
     }
   };
 
+  // 파일은 폴더 전체에 놓아 이동하고, 폴더는 중앙에 놓아 이동하거나 좌우에서 정렬합니다.
+  const explorerCollisionDetection: CollisionDetection = (args) => {
+    const hits = pointerWithin(args);
+    const activeId = String(args.active.id);
+    const isFolder = activeId.startsWith("folder-sort:");
+    const sourceId = isFolder
+      ? activeId.slice("folder-sort:".length)
+      : activeId;
+    const folderHit = hits.find((hit) => {
+      const hitId = String(hit.id);
+      return (
+        hitId.startsWith("folder:") &&
+        (!isFolder || hitId.slice("folder:".length) !== sourceId)
+      );
+    });
+    if (folderHit) {
+      if (!isFolder) return [folderHit];
+      const targetId = String(folderHit.id).slice("folder:".length);
+      const rect = args.droppableRects.get(folderHit.id);
+      const point = args.pointerCoordinates;
+      if (!rect || !point) return [];
+      const relativeX = (point.x - rect.left) / rect.width;
+      if (relativeX >= 1 / 3 && relativeX <= 2 / 3) return [folderHit];
+      if (!canReorderFolders(sourceId, targetId)) return [];
+      return hits.filter((hit) => String(hit.id) === `folder-sort:${targetId}`);
+    }
+    if (isFolder) return [];
+    return hits.filter((hit) => !String(hit.id).startsWith("folder-sort:"));
+  };
+
   const handleFileDragStart = (event: any) => {
     const id = String(event.active.id);
+    if (id.startsWith("folder-sort:")) {
+      const folderId = id.slice("folder-sort:".length);
+      const folder = folders.find((item: any) => item.id === folderId);
+      if (!canManage || !folder || folder.id === "temp") return;
+      resetDragVisualState();
+      setActiveFolder(folder);
+      setDraggingFolderId(folderId);
+      return;
+    }
     const item = datas.find((x: any) => x.id === id);
     if (!item) return;
 
@@ -631,6 +606,14 @@ export default function UserPage({ id }: Props) {
     if (!overId) {
       setDragOverFolderId(null);
       setIsPreviewZoneActive(false);
+      return;
+    }
+
+    if (String(event.active.id).startsWith("folder-sort:")) {
+      setIsPreviewZoneActive(false);
+      setDragOverFolderId(
+        overId.startsWith("folder:") ? overId.slice("folder:".length) : null,
+      );
       return;
     }
 
@@ -659,6 +642,43 @@ export default function UserPage({ id }: Props) {
 
     if (!activeId) {
       resetDragVisualState();
+      return;
+    }
+
+    if (activeId.startsWith("folder-sort:")) {
+      const sourceId = activeId.slice("folder-sort:".length);
+      const source = folders.find((item: any) => item.id === sourceId);
+      // 확인창을 열기 전에 드래그 미리보기를 정리합니다.
+      resetDragVisualState();
+      if (!canManage || !source || !overId) return;
+      if (overId.startsWith("folder:")) {
+        const targetId = overId.slice("folder:".length);
+        const target = folders.find((item: any) => item.id === targetId);
+        if (!target || sourceId === targetId || target.id === "temp") return;
+        await moveFolderToFolder(
+          sourceId,
+          source.realTitle,
+          source.parentId,
+          targetId,
+          target.realTitle,
+        );
+      } else if (overId.startsWith("folder-sort:")) {
+        const targetId = overId.slice("folder-sort:".length);
+        if (!canReorderFolders(sourceId, targetId)) return;
+        const group = sortFolders(
+          folders.filter(
+            (item: any) => (item.liked === true) === (source.liked === true),
+          ),
+        );
+        const oldIndex = group.findIndex((item: any) => item.id === sourceId);
+        const newIndex = group.findIndex((item: any) => item.id === targetId);
+        if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return;
+        await reorderFolderItems(
+          sourceId,
+          targetId,
+          oldIndex < newIndex ? "after" : "before",
+        );
+      }
       return;
     }
 
@@ -1655,7 +1675,7 @@ export default function UserPage({ id }: Props) {
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={pointerWithin}
+      collisionDetection={explorerCollisionDetection}
       onDragStart={handleFileDragStart}
       onDragOver={handleFileDragOver}
       onDragEnd={handleFileDragEnd}
@@ -1878,94 +1898,96 @@ export default function UserPage({ id }: Props) {
                 <div className="m-8 flex select-none flex-wrap justify-center gap-8 sm:justify-start">
                   <AnimatePresence>
                     {viewMode === "card" ? (
-                      displayFolders.map((entry: any) => {
-                        if (entry.type === "placeholder") {
-                          return (
-                            <motion.div
-                              key={entry.id}
-                              layout
-                              initial={{ width: 0, opacity: 0, scale: 0.96 }}
-                              animate={{ width: 112, opacity: 1, scale: 1 }}
-                              exit={{ width: 0, opacity: 0, scale: 0.96 }}
-                              transition={{ duration: 0.18 }}
-                              className="h-[160px] sm:h-[200px] sm:w-[140px]"
-                              style={{
-                                border: "2px dashed var(--color-customBorder)",
-                                borderRadius: "0.375rem",
-                                backgroundColor: "rgba(59,130,246,0.06)",
-                                pointerEvents: "none",
-                              }}
-                            />
+                      <motion.div
+                        layout
+                        className="flex flex-wrap justify-center gap-8 sm:justify-start"
+                      >
+                        {[true, false].map((liked) => {
+                          const group = folders.filter(
+                            (folder: any) => (folder.liked === true) === liked,
                           );
-                        }
+                          return (
+                            <SortableContext
+                              key={String(liked)}
+                              items={group.map(
+                                (folder: any) => `folder-sort:${folder.id}`,
+                              )}
+                              strategy={rectSortingStrategy}
+                            >
+                              {group.map((folder: any) => {
+                                const realIdx = folders.findIndex(
+                                  (x: any) => x.id === folder.id,
+                                );
+                                const folderChecked = isSelected(
+                                  folder.id,
+                                  "folder",
+                                );
 
-                        const folder = entry.item;
-                        const realIdx = folders.findIndex(
-                          (x: any) => x.id === folder.id,
-                        );
-                        const folderChecked = isSelected(folder.id, "folder");
-
-                        return (
-                          <DroppableFolderCard
-                            key={folder.id}
-                            folderId={folder.id}
-                          >
-                            <FolderCard
-                              folder={folder}
-                              idx={realIdx}
-                              folderChecked={folderChecked}
-                              modSwitch={modSwitch}
-                              currentDataId={currentDataId}
-                              sessionEmail={session?.user?.email}
-                              owner={owner}
-                              pageId={id}
-                              draggingFolderId={draggingFolderId}
-                              draggingFileId={draggingFileId}
-                              dragOverFolderId={dragOverFolderId}
-                              folders={folders}
-                              setFolders={setFolders}
-                              setDraggingFolderId={setDraggingFolderId}
-                              setTouchGhost={setTouchGhost}
-                              setDragOverFolderId={setDragOverFolderId}
-                              setIsPreviewZoneActive={setIsPreviewZoneActive}
-                              setLocation={setLocation}
-                              setLocation2={setLocation2}
-                              setCurrentDataId={setCurrentDataId}
-                              setModSwitch={setModSwitch}
-                              setTestSwitch={setTestSwitch}
-                              touchDragRef={touchDragRef}
-                              isSelected={isSelected}
-                              toggleSelectedItem={toggleSelectedItem}
-                              deleteFolder={deleteFolder}
-                              moveFolderToFolder={moveFolderToFolder}
-                              moveSelectedItemsToFolder={
-                                moveSelectedItemsToFolder
-                              }
-                              handleEditTitle={handleEditTitle}
-                              editTitle={editTitle}
-                              getMenuPositionInContent={
-                                getMenuPositionInContent
-                              }
-                              resetDragVisualState={resetDragVisualState}
-                              moveFileToFolder={moveFileToFolder}
-                              routerPushFolder={(folderId) =>
-                                router.push(`/folder/${folderId}`)
-                              }
-                              selectedItems={selectedItems}
-                              clearSelectedItems={clearSelectedItems}
-                              canManage={
-                                id
-                                  ? session?.user?.email === owner
-                                  : !!session?.user?.email
-                              }
-                              folderReorderTarget={folderReorderTarget}
-                              setFolderReorderTarget={setFolderReorderTarget}
-                              reorderFolderItems={reorderFolderItems}
-                              canReorderFolders={canReorderFolders}
-                            />
-                          </DroppableFolderCard>
-                        );
-                      })
+                                return (
+                                  <FolderCard
+                                    key={folder.title}
+                                    folder={folder}
+                                    idx={realIdx}
+                                    folderChecked={folderChecked}
+                                    modSwitch={modSwitch}
+                                    currentDataId={currentDataId}
+                                    sessionEmail={session?.user?.email}
+                                    owner={owner}
+                                    pageId={id}
+                                    draggingFolderId={draggingFolderId}
+                                    draggingFileId={draggingFileId}
+                                    dragOverFolderId={dragOverFolderId}
+                                    folders={folders}
+                                    setFolders={setFolders}
+                                    setDraggingFolderId={setDraggingFolderId}
+                                    setTouchGhost={setTouchGhost}
+                                    setDragOverFolderId={setDragOverFolderId}
+                                    setIsPreviewZoneActive={
+                                      setIsPreviewZoneActive
+                                    }
+                                    setLocation={setLocation}
+                                    setLocation2={setLocation2}
+                                    setCurrentDataId={setCurrentDataId}
+                                    setModSwitch={setModSwitch}
+                                    setTestSwitch={setTestSwitch}
+                                    touchDragRef={touchDragRef}
+                                    isSelected={isSelected}
+                                    toggleSelectedItem={toggleSelectedItem}
+                                    deleteFolder={deleteFolder}
+                                    moveFolderToFolder={moveFolderToFolder}
+                                    moveSelectedItemsToFolder={
+                                      moveSelectedItemsToFolder
+                                    }
+                                    handleEditTitle={handleEditTitle}
+                                    editTitle={editTitle}
+                                    getMenuPositionInContent={
+                                      getMenuPositionInContent
+                                    }
+                                    resetDragVisualState={resetDragVisualState}
+                                    moveFileToFolder={moveFileToFolder}
+                                    routerPushFolder={(folderId) =>
+                                      router.push(`/folder/${folderId}`)
+                                    }
+                                    selectedItems={selectedItems}
+                                    clearSelectedItems={clearSelectedItems}
+                                    canManage={
+                                      id
+                                        ? session?.user?.email === owner
+                                        : !!session?.user?.email
+                                    }
+                                    folderReorderTarget={folderReorderTarget}
+                                    setFolderReorderTarget={
+                                      setFolderReorderTarget
+                                    }
+                                    reorderFolderItems={reorderFolderItems}
+                                    canReorderFolders={canReorderFolders}
+                                  />
+                                );
+                              })}
+                            </SortableContext>
+                          );
+                        })}
+                      </motion.div>
                     ) : (
                       <motion.div layout className="flex w-full flex-col gap-2">
                         {folders.map((folder: any, idx: number) => {
@@ -2169,7 +2191,7 @@ export default function UserPage({ id }: Props) {
             </div>
           )} */}
           <DragOverlay zIndex={30000}>
-            {activeFileId ? (
+            {activeFileId || activeFolder ? (
               <div
                 className="flex h-[160px] w-[112px] items-center justify-center rounded-md border-2 border-customBorder px-4 text-center shadow-xl sm:h-[200px] sm:w-[140px]"
                 style={{
@@ -2177,7 +2199,11 @@ export default function UserPage({ id }: Props) {
                   color: "var(--color-primary)",
                 }}
               >
-                {activeFileTitle}
+                {activeFolder ? (
+                  <FaRegFolderOpen className="text-7xl" />
+                ) : (
+                  activeFileTitle
+                )}
               </div>
             ) : null}
           </DragOverlay>
