@@ -95,7 +95,8 @@ export default function UserPage({ id }: Props) {
   const pathName = usePathname().split("/")[1];
   const { data: session } = useSession();
   const isMounted = useRef(false);
-
+  // 현재 화면에서 만든 텍스트만 임시로 우선 표시합니다. 새로고침 시 초기화됩니다.
+  const recentTextTitles = useRef<string[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -758,9 +759,8 @@ export default function UserPage({ id }: Props) {
               parentId: id || "0",
             });
             if (final.message === "무라사키") {
-              const semi = datas.slice(0);
-              semi.unshift(final.data);
-              setDatas(semi);
+              recentTextTitles.current.unshift(final.data.title);
+              setDatas((prevDatas: any[]) => [final.data, ...prevDatas]);
             } else {
               toast({
                 title: "알림",
@@ -818,9 +818,8 @@ export default function UserPage({ id }: Props) {
                 parentId: id || "0",
               });
               if (final.message === "무라사키") {
-                const semi = datas.slice(0);
-                semi.unshift(final.data);
-                setDatas(semi);
+                recentTextTitles.current.unshift(final.data.title);
+                setDatas((prevDatas: any[]) => [final.data, ...prevDatas]);
               } else {
                 toast({
                   title: "알림",
@@ -860,7 +859,7 @@ export default function UserPage({ id }: Props) {
       liked: false,
       parentId: id || "0",
     };
-    const temp = [optimisticData, ...datas];
+    recentTextTitles.current.unshift(optimisticData.title);
     setDatas((prevDatas: any) => [optimisticData, ...prevDatas]);
     setDataCount([...dataCount, dataCount[dataCount.length - 1] + 1]);
     const fileRef = ref(storage, `texts/${fileName}:${key}.txt`);
@@ -877,13 +876,13 @@ export default function UserPage({ id }: Props) {
         parentId: id || "0",
       });
       if (final.message === "무라사키") {
-        let tempCopy = temp.slice(0);
-        tempCopy = tempCopy.map((item: any) => {
-          return item.title === optimisticData.title
-            ? { ...item, path: downUrl, id: final.data.id }
-            : item;
-        });
-        setDatas(tempCopy);
+        setDatas((prevDatas: any[]) =>
+          prevDatas.map((item: any) =>
+            item.title === optimisticData.title
+              ? { ...item, path: downUrl, id: final.data.id }
+              : item,
+          ),
+        );
       } else {
         toast({
           title: "알림",
@@ -1626,6 +1625,27 @@ export default function UserPage({ id }: Props) {
     window.localStorage.setItem("explorer-view-mode", viewMode);
   }, [viewMode]);
 
+  // 임시 우선순위는 서버에 저장하지 않습니다.
+  const recentRanks = new Map(
+    recentTextTitles.current.map((title, index) => [title, index]),
+  );
+  const displayedFiles = datas
+    .map((data: any, idx: number) => ({ data, idx }))
+    .sort((a: any, b: any) => {
+      const aRank = recentRanks.get(a.data.title);
+      const bRank = recentRanks.get(b.data.title);
+      if (aRank !== undefined || bRank !== undefined) {
+        return (aRank ?? Infinity) - (bRank ?? Infinity);
+      }
+      return Number(b.data.liked === true) - Number(a.data.liked === true)
+        || a.idx - b.idx;
+    });
+  const fileDisplayGroups = [
+    displayedFiles.filter(({ data }: any) => recentRanks.has(data.title)),
+    displayedFiles.filter(({ data }: any) => !recentRanks.has(data.title) && data.liked === true),
+    displayedFiles.filter(({ data }: any) => !recentRanks.has(data.title) && data.liked !== true),
+  ];
+
   return (
     <DndContext
       sensors={sensors}
@@ -2005,18 +2025,13 @@ export default function UserPage({ id }: Props) {
                           </motion.div>
                         )}
 
+                        {fileDisplayGroups.map((group: any[], groupIndex: number) => (
                         <SortableContext
-                          items={datas
-                            .filter((item: any) => item.liked === true)
-                            .map((item: any) => item.id)}
+                          key={groupIndex}
+                          items={group.map(({ data }: any) => data.id)}
                           strategy={rectSortingStrategy}
                         >
-                          {datas
-                            .filter((item: any) => item.liked === true)
-                            .map((data: any) => {
-                              const realIdx = datas.findIndex(
-                                (x: any) => x.id === data.id,
-                              );
+                          {group.map(({ data, idx: realIdx }: any) => {
                               const dataChecked = isSelected(data.id, "file");
 
                               return (
@@ -2065,67 +2080,7 @@ export default function UserPage({ id }: Props) {
                               );
                             })}
                         </SortableContext>
-
-                        <SortableContext
-                          items={datas
-                            .filter((item: any) => item.liked !== true)
-                            .map((item: any) => item.id)}
-                          strategy={rectSortingStrategy}
-                        >
-                          {datas
-                            .filter((item: any) => item.liked !== true)
-                            .map((data: any) => {
-                              const realIdx = datas.findIndex(
-                                (x: any) => x.id === data.id,
-                              );
-                              const dataChecked = isSelected(data.id, "file");
-
-                              return (
-                                <FileCard
-                                  key={data.id}
-                                  data={data}
-                                  idx={realIdx}
-                                  dataChecked={dataChecked}
-                                  modSwitch={modSwitch}
-                                  sessionEmail={session?.user?.email}
-                                  owner={owner}
-                                  pageId={id}
-                                  isPreviewMode={isPreviewMode}
-                                  draggingFileId={draggingFileId}
-                                  folders={folders}
-                                  setDraggingFileId={setDraggingFileId}
-                                  setTouchGhost={setTouchGhost}
-                                  setDragOverFolderId={setDragOverFolderId}
-                                  setIsPreviewZoneActive={
-                                    setIsPreviewZoneActive
-                                  }
-                                  setLocation={setLocation}
-                                  setLocation2={setLocation2}
-                                  setCurrentDataId={setCurrentDataId}
-                                  setIsDesktopFileDragging={
-                                    setIsDesktopFileDragging
-                                  }
-                                  setTestSwitch={setTestSwitch}
-                                  touchDragRef={touchDragRef}
-                                  toggleSelectedItem={toggleSelectedItem}
-                                  deleteWritten={deleteWritten}
-                                  moveFileToFolder={moveFileToFolder}
-                                  handleEditTitle={handleEditTitle}
-                                  editTitle={editTitle}
-                                  updateFileTitleDraft={updateFileTitleDraft}
-                                  getMenuPositionInContent={
-                                    getMenuPositionInContent
-                                  }
-                                  resetDragVisualState={resetDragVisualState}
-                                  openPreviewFile={openPreviewFile}
-                                  routerPushText={(textId) =>
-                                    router.push(`/text/${textId}`)
-                                  }
-                                  canManage={canManage}
-                                />
-                              );
-                            })}
-                        </SortableContext>
+                        ))}
                       </motion.div>
                     ) : (
                       <motion.div layout className="flex w-full flex-col gap-2">
@@ -2149,7 +2104,7 @@ export default function UserPage({ id }: Props) {
                           </div>
                         )}
 
-                        {datas.map((data: any, idx: number) => {
+                        {displayedFiles.map(({ data, idx }: any) => {
                           const dataChecked = isSelected(data.id, "file");
 
                           return (
