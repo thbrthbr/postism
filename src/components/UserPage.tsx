@@ -1637,13 +1637,19 @@ export default function UserPage({ id }: Props) {
       if (aRank !== undefined || bRank !== undefined) {
         return (aRank ?? Infinity) - (bRank ?? Infinity);
       }
-      return Number(b.data.liked === true) - Number(a.data.liked === true)
-        || a.idx - b.idx;
+      return (
+        Number(b.data.liked === true) - Number(a.data.liked === true) ||
+        a.idx - b.idx
+      );
     });
   const fileDisplayGroups = [
     displayedFiles.filter(({ data }: any) => recentRanks.has(data.title)),
-    displayedFiles.filter(({ data }: any) => !recentRanks.has(data.title) && data.liked === true),
-    displayedFiles.filter(({ data }: any) => !recentRanks.has(data.title) && data.liked !== true),
+    displayedFiles.filter(
+      ({ data }: any) => !recentRanks.has(data.title) && data.liked === true,
+    ),
+    displayedFiles.filter(
+      ({ data }: any) => !recentRanks.has(data.title) && data.liked !== true,
+    ),
   ];
 
   return (
@@ -2025,62 +2031,64 @@ export default function UserPage({ id }: Props) {
                           </motion.div>
                         )}
 
-                        {fileDisplayGroups.map((group: any[], groupIndex: number) => (
-                        <SortableContext
-                          key={groupIndex}
-                          items={group.map(({ data }: any) => data.id)}
-                          strategy={rectSortingStrategy}
-                        >
-                          {group.map(({ data, idx: realIdx }: any) => {
-                              const dataChecked = isSelected(data.id, "file");
+                        {fileDisplayGroups.map(
+                          (group: any[], groupIndex: number) => (
+                            <SortableContext
+                              key={groupIndex}
+                              items={group.map(({ data }: any) => data.id)}
+                              strategy={rectSortingStrategy}
+                            >
+                              {group.map(({ data, idx: realIdx }: any) => {
+                                const dataChecked = isSelected(data.id, "file");
 
-                              return (
-                                <FileCard
-                                  key={data.id}
-                                  data={data}
-                                  idx={realIdx}
-                                  dataChecked={dataChecked}
-                                  modSwitch={modSwitch}
-                                  sessionEmail={session?.user?.email}
-                                  owner={owner}
-                                  pageId={id}
-                                  isPreviewMode={isPreviewMode}
-                                  draggingFileId={draggingFileId}
-                                  folders={folders}
-                                  setDraggingFileId={setDraggingFileId}
-                                  setTouchGhost={setTouchGhost}
-                                  setDragOverFolderId={setDragOverFolderId}
-                                  setIsPreviewZoneActive={
-                                    setIsPreviewZoneActive
-                                  }
-                                  setLocation={setLocation}
-                                  setLocation2={setLocation2}
-                                  setCurrentDataId={setCurrentDataId}
-                                  setIsDesktopFileDragging={
-                                    setIsDesktopFileDragging
-                                  }
-                                  setTestSwitch={setTestSwitch}
-                                  touchDragRef={touchDragRef}
-                                  toggleSelectedItem={toggleSelectedItem}
-                                  deleteWritten={deleteWritten}
-                                  moveFileToFolder={moveFileToFolder}
-                                  handleEditTitle={handleEditTitle}
-                                  editTitle={editTitle}
-                                  updateFileTitleDraft={updateFileTitleDraft}
-                                  getMenuPositionInContent={
-                                    getMenuPositionInContent
-                                  }
-                                  resetDragVisualState={resetDragVisualState}
-                                  openPreviewFile={openPreviewFile}
-                                  routerPushText={(textId) =>
-                                    router.push(`/text/${textId}`)
-                                  }
-                                  canManage={canManage}
-                                />
-                              );
-                            })}
-                        </SortableContext>
-                        ))}
+                                return (
+                                  <FileCard
+                                    key={data.id}
+                                    data={data}
+                                    idx={realIdx}
+                                    dataChecked={dataChecked}
+                                    modSwitch={modSwitch}
+                                    sessionEmail={session?.user?.email}
+                                    owner={owner}
+                                    pageId={id}
+                                    isPreviewMode={isPreviewMode}
+                                    draggingFileId={draggingFileId}
+                                    folders={folders}
+                                    setDraggingFileId={setDraggingFileId}
+                                    setTouchGhost={setTouchGhost}
+                                    setDragOverFolderId={setDragOverFolderId}
+                                    setIsPreviewZoneActive={
+                                      setIsPreviewZoneActive
+                                    }
+                                    setLocation={setLocation}
+                                    setLocation2={setLocation2}
+                                    setCurrentDataId={setCurrentDataId}
+                                    setIsDesktopFileDragging={
+                                      setIsDesktopFileDragging
+                                    }
+                                    setTestSwitch={setTestSwitch}
+                                    touchDragRef={touchDragRef}
+                                    toggleSelectedItem={toggleSelectedItem}
+                                    deleteWritten={deleteWritten}
+                                    moveFileToFolder={moveFileToFolder}
+                                    handleEditTitle={handleEditTitle}
+                                    editTitle={editTitle}
+                                    updateFileTitleDraft={updateFileTitleDraft}
+                                    getMenuPositionInContent={
+                                      getMenuPositionInContent
+                                    }
+                                    resetDragVisualState={resetDragVisualState}
+                                    openPreviewFile={openPreviewFile}
+                                    routerPushText={(textId) =>
+                                      router.push(`/text/${textId}`)
+                                    }
+                                    canManage={canManage}
+                                  />
+                                );
+                              })}
+                            </SortableContext>
+                          ),
+                        )}
                       </motion.div>
                     ) : (
                       <motion.div layout className="flex w-full flex-col gap-2">
